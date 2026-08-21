@@ -1448,7 +1448,7 @@ def show_timetable(dfc):
     """)
 
     gob = GridOptionsBuilder.from_dataframe(dfc)
-    gob.configure_grid_options(onCellDoubleClicked=swap_cells_js)  
+    gob.configure_grid_options(onCellClicked=swap_cells_js)  
     gob.configure_default_column(
         cellStyle=cell_style_js,
         headerClass="my-blue-header",
