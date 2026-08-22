@@ -1169,92 +1169,36 @@ def show_dict_popup(thutietij_dic, teacher_name):
             df.at[row, col] = value.replace("Lop_","")
 
     # 4. Đổi tên cột từ số sang chữ "Thu X"
-    df.columns = [f"Thu {c}" for c in df.columns]
+    df.columns = [f"Thứ {c}" for c in df.columns]
 
     # --- PHẦN SỬA ĐỔI ĐỂ THÊM CỘT "Tiet" ---
     # Đưa chỉ số index (1-10) thành 1 cột và đặt tên cột cũ đó là "Tiet"
     df = df.reset_index().rename(columns={'index': 'Tiet'})
 
     # Hiển thị kết quả
-    #st.write(df)
 
-    # 2. Xây dựng cấu hình cho bảng AG Grid
-    gb = GridOptionsBuilder.from_dataframe(df)
-    gb.configure_default_column(editable=False, resizable=True, sortable=False)
+    # Hàm tô màu cho cột Tiet
+    def color_tiet(val):
+        color = 'lightgreen' if val >= 6 else 'lightblue'
+        return f'background-color: {color}'
 
-    # 3. Viết mã JavaScript để định dạng màu sắc cho cột 'Tiet'
-    # - Tiết 1-5: Tô nền xanh lá nhạt (#d4edda) kèm chữ xanh đậm (#155724)
-    # - Tiết 6-10: Tô nền vàng nhạt (#fff3cd) kèm chữ vàng đậm (#856404)
-    rowstyle_jscode = JsCode("""
-    function(params) {
-        if (params.data && params.data.Tiet) {
-            var val = parseInt(params.data.Tiet);
-            if (val >= 1 && val <= 5) {
-                return {
-                    'backgroundColor': 'lightblue',
-                    'color': '#155724'
-                };
-            } else if (val >= 6 && val <= 10) {
-                return {
-                    'backgroundColor': 'lightgreen',
-                    'color': '#856404'
-                };
-            }
-        }
-        return null;
-    }
-    """)
+    # Hàm tô màu cho cột Name dựa vào index
+    def color_name(val, row_index):
+        color = 'lightgreen' if row_index >= 5 else 'lightblue'
+        return f'background-color: {color}'
 
-    # Áp dụng màu sắc vào cột "Tiet"
-    gb.configure_column(
-        "Tiet", 
-        header_name="Tiết", 
-        cellStyle=rowstyle_jscode
-    )
-    gb.configure_column(
-        "Thu 2", 
-        header_name="Thứ Hai", 
-        cellStyle=rowstyle_jscode
-    )
-    gb.configure_column(
-        "Thu 3", 
-        header_name="Thứ Ba", 
-        cellStyle=rowstyle_jscode
-    )
-    gb.configure_column(
-        "Thu 4", 
-        header_name="Thứ Tư", 
-        cellStyle=rowstyle_jscode
-    )
-    gb.configure_column(
-        "Thu 5", 
-        header_name="Thứ Năm", 
-        cellStyle=rowstyle_jscode
-    )
-    gb.configure_column(
-        "Thu 6", 
-        header_name="Thứ Sáu", 
-        cellStyle=rowstyle_jscode
-    )
-    gb.configure_column(
-        "Thu 7", 
-        header_name="Thứ Bảy", 
-        cellStyle=rowstyle_jscode
-    )
-    gb.configure_grid_options(rowHeight=25)
+    # Áp dụng style
+    styled_df1 = df.style.map(color_tiet, subset=['Tiet'])
 
-    gridOptions = gb.build()
-
-    # 4. Hiển thị bảng
-    AgGrid(
-        df,
-        gridOptions=gridOptions,
-        theme="balham",
-        height=320,
-        fit_columns_on_grid_load=True,
-        allow_unsafe_jscode=True, # BẮT BUỘC phải bật thuộc tính này để chạy mã JsCode
-        update_on="MODEL_CHANGED"
+    # Áp dụng cho các cột còn lại theo index
+    styled_dfcc = styled_df1.apply(
+        lambda col: [
+            color_name(val, i) for i, val in enumerate(col)
+        ],
+        subset=['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
     )
+
+    st.dataframe(styled_dfcc, hide_index=True)
 
 
 # f5---Hàm tạo lịch cho một giáo viên---------
@@ -1308,10 +1252,15 @@ def show_teacher_menu(dfc):
 
     list_gvs_sorted = sorted(list(gv_set))
 
-    selected_option = st.selectbox("👀 :red[XEM TKB TỪNG GIÁO VIÊN]", options=["-- Chọn Gv --"] + list_gvs_sorted, index=0)
-    if selected_option != "-- Chọn Gv --":
+    option = st.selectbox("👀 Xem TKB Giáo viên", list_gvs_sorted,index=None,placeholder="Chọn GV để xem ",)
+    if option :
+        build_teacher_schedule(dfc, option)
+        #hthi_tkb_gv(option)
+
+    #selected_option = st.selectbox("👀 :red[XEM TKB TỪNG GIÁO VIÊN]", options=["-- Chọn Gv --"] + list_gvs_sorted, index=0)
+    #if selected_option != "-- Chọn Gv --":
         #st.write('TKB cua gv '+selected_option)
-        build_teacher_schedule(dfc, selected_option)
+        #build_teacher_schedule(dfc, selected_option)
         #show_dict_popup(dftkbgv)
 
 # f3--- Hàm nút lưu vao excel bat ky luc nao tu luoi ---
