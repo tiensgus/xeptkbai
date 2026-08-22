@@ -14,6 +14,16 @@ import streamlit as st
 import base64
 import json
 
+
+from reportlab.platypus import (
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+
 #################################### SET DAU TRANG #####################################
 st.set_page_config(layout="wide")
 st.markdown("""
@@ -28,8 +38,15 @@ st.subheader("TKB THPT APC")
 ##########################################################################################
 
 @st.dialog("In Tkb Gv ", width="large")
+
 def  in_tkb_gv(dfc):
-    df = dfc
+    # ==========================================
+    # KHONG DUNG dfc VI dfc LA df_tkbc = pd.read_excel("Tkb_luu_last/tkb_chung.xlsx")
+    # NHUNG DA CHUYEN DOI TU COT 2 THANH STRING
+    # NEN PHAI DUNG df_tkbc = pd.read_excel("Tkb_luu_last/tkb_chung.xlsx") DE KHONG GAY LOI
+    # ==========================================
+    df_tkbc = pd.read_excel("Tkb_luu_last/tkb_chung.xlsx")
+    df = df_tkbc
 
     # 2. Chuyển bảng từ dạng rộng sang dọc
     df_long = df.melt(id_vars=['Thu', 'Tiet'], var_name='Lop', value_name='GiaoVien_Goc')
@@ -59,6 +76,7 @@ def  in_tkb_gv(dfc):
         # =========================================================================
         # Bước 1: Lấy phần sau dấu "_" của cột Lop (ví dụ: 'Lop_12A3' -> '12A3')
         phan_duoi_lop = df_gv['Lop'].astype(str).str.split('_').str[1].str.strip()
+        
         # Bước 2: Lấy phần sau dấu "_" của cột GiaoVien_Goc (ví dụ: 'Hương_NV' -> 'NV')
         phan_sau_gv = df_gv['GiaoVien_Goc'].astype(str).str.split('_').str[1].str.strip()
         # Bước 3: Nối hai phần lại với nhau bằng dấu "-" và ghi đè vào cột 'Lop'
@@ -84,6 +102,7 @@ def  in_tkb_gv(dfc):
         
         tkb_giao_vien[gv] = pivot_gv
         #print(gv,tkb_giao_vien[gv])
+
 
     # ==============================================================================
     # PHẦN 2: VIẾT TIẾP MÃ XUẤT PDF CHUNG VÀ HIỂN THỊ LÊN STREAMLIT
@@ -135,17 +154,23 @@ def  in_tkb_gv(dfc):
 
 
     def xuat_pdf_tong_hop(tkb_dict, filename="tkb_tat_ca_gv.pdf"):
-        # 1. Khởi tạo Font chữ tiếng Việt Arial
-        font_path = "C:\\Windows\\Fonts\\arial.ttf"
-        font_bold_path = "C:\\Windows\\Fonts\\arialbd.ttf"
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        import os
 
-        if os.path.exists(font_path):
-            pdfmetrics.registerFont(TTFont("Arial", font_path))
-            pdfmetrics.registerFont(TTFont("Arial-Bold", font_bold_path))
-            f_normal, f_bold = "Arial", "Arial-Bold"
+        # Khởi tạo Font Noto Sans (Unicode đầy đủ, hỗ trợ tiếng Việt)
+        font_path = "C:\\Windows\\Fonts\\NotoSans-Regular.ttf"
+        font_bold_path = "C:\\Windows\\Fonts\\NotoSans-Bold.ttf"
+
+        if os.path.exists(font_path) and os.path.exists(font_bold_path):
+            pdfmetrics.registerFont(TTFont("NotoSans", font_path))
+            pdfmetrics.registerFont(TTFont("NotoSans-Bold", font_bold_path))
+            f_normal, f_bold = "NotoSans", "NotoSans-Bold"
         else:
-            # Dự phòng nếu chạy trên Linux/Streamlit Cloud không có sẵn Arial
+            # Dự phòng nếu không tìm thấy font trên hệ thống
             f_normal, f_bold = "Helvetica", "Helvetica-Bold"
+
+
 
         # 2. Tạo Styles thiết kế văn bản
         styles = getSampleStyleSheet()
@@ -418,7 +443,7 @@ def  in_tkb_gv(dfc):
 
     #--- TAB 1: XEM RIÊNG TỪNG GIÁO VIÊN ---
     with tab1:
-        #st.subheader("Chọn GV để in")
+        st.subheader("Chọn GV để in")
         # Tạo Selectbox lấy danh sách key từ dict tkb_giao_vien của bạn
         gv_duoc_chon = st.selectbox("Chọn tên Giáo viên từ danh sách dưới đây:", options=sorted(list(tkb_giao_vien.keys())))
         if gv_duoc_chon:
@@ -456,270 +481,6 @@ def  in_tkb_gv(dfc):
     #--- TAB 3: XEM RIÊNG TỪNG GIÁO VIÊN ---
     with tab3:
         st.write("Chưa viết mã!")
-
-@st.dialog("In Tkb Lớp", width="large")
-def  in_tkb_lop(dfc):
-    gio_hoc = [
-        "09:00 - 07:45", "07:50 - 08:35", "08:50 - 09:35", "09:40 - 10:25", "10:30 - 11:15",
-        "13:00 - 13:45", "13:50 - 14:35", "14:50 - 15:35", "15:40 - 16:25", "16:30 - 17:15"
-    ]
-    # Đường dẫn tới tệp cấu hình JSON trên server
-    JSON_FILE_PATH = "info_school.json"
-    # Tiến hành đọc cấu hình giờ học thực tế từ tệp JSON
-    if os.path.exists(JSON_FILE_PATH):
-        try:
-            with open(JSON_FILE_PATH, "r", encoding="utf-8") as f:
-                school_info = json.load(f)
-                # Lấy dữ liệu của khóa "Gio_hoc", nếu không tìm thấy key này thì giữ nguyên mảng mặc định
-                if "Gio_hoc" in school_info:
-                    gio_hoc = school_info["Gio_hoc"]
-        except Exception as e:
-            # Nếu tệp JSON bị lỗi cú pháp khi người dùng sửa, in ra cảnh báo và dùng giờ mặc định
-            print(f"Cảnh báo: Không thể đọc tệp JSON do lỗi: {e}")
-    # thay khung gio hoc xong        
-
-    font_path = "C:\\Windows\\Fonts\\arial.ttf"
-    font_bold_path = "C:\\Windows\\Fonts\\arialbd.ttf"
-
-    f_normal = "Helvetica"
-    f_bold = "Helvetica-Bold"
-
-    if os.path.exists(font_path) and os.path.exists(font_bold_path):
-        try:
-            pdfmetrics.registerFont(TTFont('Arial', font_path))
-            pdfmetrics.registerFont(TTFont('Arial-Bold', font_bold_path))
-            f_normal = "Arial"
-            f_bold = "Arial-Bold"
-        except Exception:
-            pass
-
-
-    # 2. Chuyển bảng từ dạng rộng sang dọc để tạo ra biến df_long
-    df_long = dfc.melt(id_vars=['Thu', 'Tiet'], var_name='Lop', value_name='GiaoVien_Goc')
-
-    # Lọc bỏ các dòng trống
-    df_long = df_long.dropna(subset=['GiaoVien_Goc'])
-
-
-    # ==============================================================================
-    # TIẾP TỤC CÁC BƯỚC XỬ LÝ LỚP HỌC (ĐOẠN CODE TRƯỚC ĐÓ)
-    # ==============================================================================
-    # Bước 1: Làm sạch tên lớp hiển thị (Ví dụ: 'Lop_12A3' -> '12A3')
-    df_long['Ten_Lop_Sạch'] = df_long['Lop'].astype(str).str.split('_').str[-1].str.strip()
-
-    # Bước 2: Tạo nội dung hiển thị trong ô của học sinh (Tên môn + Tên GV)
-    def tao_noi_dung_o_lop(row):
-        parts_gv = str(row['GiaoVien_Goc']).split('_')
-        ten_gv_short = parts_gv[0].strip()
-        ten_mon = parts_gv[1].strip() if len(parts_gv) > 1 else ""
-        return f"{ten_mon}\n({ten_gv_short})" if ten_mon else ten_gv_short
-
-    df_long['Noi_Dung_O_Lop'] = df_long.apply(tao_noi_dung_o_lop, axis=1)
-
-    # Bước 3: Duyệt qua danh sách lớp để tạo dict TKB 
-    danh_sach_lop = sorted(df_long['Ten_Lop_Sạch'].unique())
-    tkb_cac_lop = {}
-
-    for lop in danh_sach_lop:
-        df_lop = df_long[df_long['Ten_Lop_Sạch'] == lop]
-        
-        # Pivot dữ liệu theo Tiết và Thứ cho Lớp
-        pivot_lop = df_lop.pivot_table(
-            index='Tiet',
-            columns='Thu',
-            values='Noi_Dung_O_Lop',
-            aggfunc=lambda x: ', '.join(x.unique())
-        )
-        
-        # Định hình khung cố định: Tiết 1-10, Thứ 2-7
-        pivot_lop = pivot_lop.reindex(index=range(1, 11), columns=range(2, 8)).fillna('')
-        
-        # Định dạng lại tiêu đề cột và chỉ mục
-        pivot_lop.columns = [f'Thu {c}' for c in pivot_lop.columns]
-        pivot_lop.index.name = 'Tiet'
-        pivot_lop = pivot_lop.reset_index()
-        
-        tkb_cac_lop[lop] = pivot_lop
-
-    # ==============================================================================
-    # PHẦN 2: HÀM XUẤT PDF TKB LỚP ĐƠN LẺ VÀ LỚP TỔNG HỢP
-    # ==============================================================================
-
-    def xuat_pdf_lop_don_le(ten_lop, df_lop, filename="tkb_lop_don_le.pdf"):
-        """Xuất file PDF xem riêng 1 lớp (Chữ to rõ ràng)"""
-        styles = getSampleStyleSheet()
-        style_school = ParagraphStyle("SchL", fontName=f_normal, fontSize=9, leading=11, alignment=0, textColor=colors.HexColor("#7F8C8D"))
-        style_title = ParagraphStyle("TtlL", fontName=f_bold, fontSize=12, leading=15, alignment=1, textColor=colors.HexColor("#2C3E50"))
-        style_header = ParagraphStyle("HdrL", fontName=f_bold, fontSize=9, leading=12, alignment=1, textColor=colors.whitesmoke)
-        style_cell = ParagraphStyle("ClL", fontName=f_normal, fontSize=8.5, leading=11, alignment=1, textColor=colors.black)
-        style_footer = ParagraphStyle("FtrL", fontName=f_bold, fontSize=10, leading=13, alignment=2, textColor=colors.HexColor("#2C3E50"))
-
-        doc = SimpleDocTemplate(filename, pagesize=A4, leftMargin=36, rightMargin=36, topMargin=30, bottomMargin=30)
-        elements = []
-        col_widths = [75, 50] + [68] * 6
-
-        # Tính tổng số tiết học thực tế trong tuần của lớp
-        tong_so_tiet = df_lop.iloc[:, 1:].map(lambda x: str(x).strip() != '').sum().sum()
-
-        elements.append(Paragraph("TRƯỜNG THPT NGUYEN THI XXXXXX", style_school))
-        elements.append(Paragraph(f"<b>THỜI KHÓA BIỂU LỚP: {ten_lop.upper()}</b>", style_title))
-        elements.append(Spacer(1, 15))
-
-        table_data = []
-        header_row = [Paragraph("Giờ học", style_header), Paragraph("Tiết / Thứ", style_header)] + \
-                    [Paragraph(str(col).replace("Thu", "Thứ"), style_header) for col in df_lop.columns[1:]]
-        table_data.append(header_row)
-
-        for i, row in df_lop.iterrows():
-            row_data = [Paragraph(gio_hoc[i], style_cell), Paragraph(f"Tiết {row['Tiet']}", style_cell)]
-            for cell_value in row[1:]:
-                # Sử dụng thẻ <br/> để xuống dòng nếu ô có cả Tên môn và Tên giáo viên
-                cell_text = str(cell_value).replace('\n', '<br/>')
-                row_data.append(Paragraph(cell_text, style_cell))
-            table_data.append(row_data)
-
-        t = Table(table_data, colWidths=col_widths)
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#2E4053")), # Đổi sang tông màu xám xanh đầm cho học sinh
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ('BACKGROUND', (0, 1), (1, -1), colors.HexColor("#F2F4F4")),
-            ('BACKGROUND', (2, 1), (-1, 5), colors.white),
-            ('BACKGROUND', (2, 6), (-1, 10), colors.HexColor("#FBFCFC")),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
-            ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor("#2E4053"))
-        ]))
-        elements.append(t)
-        elements.append(Spacer(1, 10))
-        elements.append(Paragraph(f"Tổng số tiết học trong tuần: {tong_so_tiet} tiết", style_footer))
-        
-        doc.build(elements)
-        return filename
-
-
-    def xuat_pdf_lop_tong_hop(tkb_dict, filename="tkb_tat_ca_lop.pdf"):
-        """Xuất file PDF tổng hợp gom tất cả các lớp (4 bảng/trang A4)"""
-        styles = getSampleStyleSheet()
-        style_school = ParagraphStyle("SchAllL", fontName=f_normal, fontSize=6, leading=7, alignment=0, textColor=colors.HexColor("#7F8C8D"))
-        style_title = ParagraphStyle("TtlAllL", fontName=f_bold, fontSize=7.5, leading=9, alignment=1, textColor=colors.HexColor("#2C3E50"))
-        style_header = ParagraphStyle("HdrAllL", fontName=f_bold, fontSize=6.5, leading=8, alignment=1, textColor=colors.whitesmoke)
-        style_cell = ParagraphStyle("ClAllL", fontName=f_normal, fontSize=6, leading=7.5, alignment=1, textColor=colors.black)
-        style_footer = ParagraphStyle("FtrAllL", fontName=f_bold, fontSize=6, leading=8, alignment=2, textColor=colors.HexColor("#2C3E50"))
-
-        doc = SimpleDocTemplate(filename, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=10, bottomMargin=10)
-        elements = []
-        col_widths = [75, 50] + [68] * 6
-
-        for idx, (ten_lop, df_lop) in enumerate(tkb_dict.items()):
-            tong_so_tiet = df_lop.iloc[:, 1:].map(lambda x: str(x).strip() != '').sum().sum()
-
-            elements.append(Paragraph("TRƯỜNG THPT NGUYEN THI XXXXXX", style_school))
-            elements.append(Paragraph(f"<b>THỜI KHÓA BIỂU LỚP: {ten_lop.upper()}</b>", style_title))
-            elements.append(Spacer(1, 2))
-
-            table_data = []
-            header_row = [Paragraph("Giờ học", style_header), Paragraph("Tiết / Thứ", style_header)] + \
-                        [Paragraph(str(col).replace("Thu", "Thứ"), style_header) for col in df_lop.columns[1:]]
-            table_data.append(header_row)
-
-            for i, row in df_lop.iterrows():
-                row_data = [Paragraph(gio_hoc[i], style_cell), Paragraph(f"Tiết {row['Tiet']}", style_cell)]
-                for cell_value in row[1:]:
-                    cell_text = str(cell_value).replace('\n', '<br/>')
-                    row_data.append(Paragraph(cell_text, style_cell))
-                table_data.append(row_data)
-
-            t = Table(table_data, colWidths=col_widths)
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#2E4053")),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('TOPPADDING', (0, 0), (-1, -1), 0.2),   
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 0.2),
-                ('BACKGROUND', (0, 1), (1, -1), colors.HexColor("#F2F4F4")),
-                ('BACKGROUND', (2, 1), (-1, 5), colors.white),
-                ('BACKGROUND', (2, 6), (-1, 10), colors.HexColor("#FBFCFC")),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
-                ('BOX', (0, 0), (-1, -1), 1.2, colors.HexColor("#2E4053"))
-            ]))
-
-            elements.append(t)
-            elements.append(Spacer(1, 1))
-            from reportlab.lib.enums import TA_LEFT
-
-            # Căn trái cho style_footer
-            style_footer.alignment = TA_LEFT
-
-            elements.append(
-                Paragraph(f"Tổng số tiết học trong tuần: {tong_so_tiet} tiết.  Áp dụng từ ngày 05/09/2026", style_footer)
-            )
-
-            #elements.append(Paragraph(f"Tổng số tiết học trong tuần: {tong_so_tiet} tiết", style_footer))
-
-            # Thuật toán ngắt trang: Cứ nhóm 4 lớp xếp chồng gọn vào 1 trang A4
-            if (idx + 1) % 3 == 0:
-                if idx < len(tkb_dict) - 1:
-                    elements.append(PageBreak())
-            else:
-                elements.append(Spacer(1, 80)) # Khoảng cách 2 dòng chữ giữa các bảng
-
-        doc.build(elements)
-        return filename
-
-    # ==============================================================================
-    # PHẦN 3: GIAO DIỆN BỔ SUNG TRÊN STREAMLIT (NẰM DƯỚI PHẦN TKB GIÁO VIÊN CỦA BẠN)
-    # ==============================================================================
-    #st.markdown("---")
-    #st.title("🏫 Hệ Thống Xuất Thời Khóa Biểu Học Sinh Theo Lớp")
-
-    tab_lop1, tab_lop2, tab_lop3 = st.tabs(["🔍 In riêng từng Lớp", "📦 Xuất file in hàng loạt Lớp", "Chỉ in Tkb Lớp có thay đổi"])
-
-    def hien_thi_pdf_tren_web(file_path, height=600):
-        """Hàm nhúng PDF vào giao diện Streamlit bằng iframe"""
-        with open(file_path, "rb") as f:
-            base64_pdf = base64.b64encode(f.read()).decode("utf-8")
-        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="{height}" type="application/pdf"></iframe>'
-        st.markdown(pdf_display, unsafe_allow_html=True)
-
-
-    #--- TAB 1: XEM RIÊNG TỪNG LỚP ---
-    with tab_lop1:
-        #st.subheader("Chọn Lớp học để xem trước thời khóa biểu")
-        lop_duoc_chon = st.selectbox("Chọn tên Lớp từ danh sách:", options=sorted(list(tkb_cac_lop.keys())))
-        if lop_duoc_chon:
-            df_lop_chon = tkb_cac_lop[lop_duoc_chon]
-            file_lop_don = xuat_pdf_lop_don_le(lop_duoc_chon, df_lop_chon)
-            
-        with open(file_lop_don, "rb") as f:
-            st.download_button(label=f"📥 Tải file PDF của Lớp {lop_duoc_chon}",
-                data=f,
-                file_name=f"TKB_Lop_{lop_duoc_chon}.pdf",
-                mime="application/pdf",
-                key="btn_lop_single")
-                
-            hien_thi_pdf_tren_web(file_lop_don, height=500)
-
-    #--- TAB 2: XUẤT FILE TỔNG HỢP CHO TẤT CẢ CÁC LỚP ---
-    with tab_lop2:
-        #st.subheader("Đóng gói thời khóa biểu của mọi lớp vào 1 file PDF tổng")
-        #st.write("Bố cục tối ưu tự động: xếp chồng 4 lớp trên một trang A4.")
-        if st.button("🚀 Bắt đầu tạo file PDF tổng các lớp", key="btn_lop_all"):
-            with st.spinner("Hệ thống đang tổng hợp dữ liệu các lớp học..."):
-                pdf_file_lop_tong = xuat_pdf_lop_tong_hop(tkb_cac_lop)
-                st.success("🎉 Đã tạo thành công file PDF chung cho toàn bộ các lớp học!")
-            with open(pdf_file_lop_tong, "rb") as f:
-                st.download_button(label="📥 Tải file PDF tổng hợp (Tất cả các Lớp)",
-                    data=f,
-                    file_name="TKB_Tong_Hop_Cac_Lop.pdf",
-                    mime="application/pdf",
-                    key="btn_download_lop_all")
-                hien_thi_pdf_tren_web(pdf_file_lop_tong, height=800)
-
-    #--- TAB 3: XUẤT FILE TỔNG HỢP CHO TẤT CẢ CÁC LỚP ---
-    with tab_lop3:
-        st.subheader("Chua viet ma")
 
 
 
