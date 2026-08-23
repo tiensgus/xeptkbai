@@ -985,7 +985,7 @@ def  in_tkb_truong_button(dfc):
 
 
 @st.dialog("✏️ Chỉnh sửa các thông số cấu hình dưới đây và nhấn 'Lưu thay đổi' để cập nhật hệ thống.", width="")
-def xem_chinh_tt():
+def xem_chinh_info():
     # Định nghĩa đường dẫn tới tệp JSON trên server
     JSON_FILE_PATH = "info_school.json"
 
@@ -1039,6 +1039,8 @@ def xem_chinh_tt():
         st.subheader("🔎 Tra cứu các môn")
         st.write(current_info["cac_mon"])
 
+        st.subheader("🔎 Tra cứu số tiết/tuần")
+        st.write(current_info["so_tiet_moi_tuan"])
         #st.subheader("🏫 Tham số cấu hình xếp thời khóa biểu")
         #tong_so_lop = st.number_input(":blue[Tổng số lớp học:]", value=int(current_info.get("tong_so_lop", 50)), min_value=1)
         #so_tiet_toi_da = st.number_input(":blue[Số tiết dạy tối đa của GV / ngày:]", value=int(current_info.get("so_tiet_toi_da_mot_ngay", 5)), min_value=1, max_value=10)
@@ -1087,12 +1089,12 @@ def xem_chinh_tt():
 
 
 
-def xem_chinh_tt_button():
+def xem_chinh_info_button():
     if st.sidebar.button("✏️ :blue[Chỉnh Thông Tin]",  use_container_width=True, key="XCTT"):
         # thi :
         try:
             #st.write("🎉 Vua click nut xep lai TKB. Xin cho mot lat... ")
-            xem_chinh_tt()
+            xem_chinh_info()
             #st.success("🎉 Da xep xong. ")
         except Exception as e:
             st.error(f"Lỗi khi xep: {e}")
@@ -1148,10 +1150,12 @@ def xep_lai_tkb(dfc):
     st.write("Da xep xong!")
 
 
+
 # f6 --- Hàm popup dictionary ---
 @st.dialog("Tkb Gv.", width="medium")
-def show_dict_popup(thutietij_dic, teacher_name):
-    st.write(teacher_name)
+def show_dict_popup(thutietij_dic, teacher_name, key=None):
+    st.write(f"{teacher_name}")
+    #st.write(teacher_name)
     #print(thutietij_dic)
 
 
@@ -1203,6 +1207,11 @@ def show_dict_popup(thutietij_dic, teacher_name):
 
     st.dataframe(styled_dfcc, hide_index=True)
 
+    # Nút đóng chủ động bên trong dialog
+    #if st.button("Đóng"):
+    #    st.session_state.active_dialog = None
+    #    st.rerun()
+
 
 # f5---Hàm tạo lịch cho một giáo viên---------
 def build_teacher_schedule(dfc, teacher_name):
@@ -1231,11 +1240,7 @@ def build_teacher_schedule(dfc, teacher_name):
                     else:
                         thutietij_dic[string_key] = thutietij_dic[string_key] + ", " + valofij
 
-    #st.write(thutietij_dic)
-    show_dict_popup(thutietij_dic, teacher_name)
-
-    #show_dict_popup(schedule, teacher_name)
-    ##return schedule
+    return thutietij_dic, teacher_name
 
 # f4--- Hàm menu chọn giáo viên ---
 def show_teacher_menu(dfc):
@@ -1254,17 +1259,28 @@ def show_teacher_menu(dfc):
     #print(gv_set)
 
     list_gvs_sorted = sorted(list(gv_set))
+    #---------------------------------------
+    # 2. Khởi tạo trạng thái theo dõi dialog
+    if "active_dialog" not in st.session_state:
+        st.session_state.active_dialog = None
 
-    option = st.selectbox("👀 Xem TKB Giáo viên", list_gvs_sorted,index=None,placeholder="Chọn GV để xem ",)
+    #-------------------------------------------------------------------
+
+
+    option = st.selectbox("👀 :red[XEM TKB TỪNG GIÁO VIÊN]", list_gvs_sorted,index=None,placeholder="Chọn GV để xem ",)
     if option :
-        build_teacher_schedule(dfc, option)
-        #hthi_tkb_gv(option)
+        thutietij_dic, teacher_name = build_teacher_schedule(dfc, option)
+        #open_teacher_dialog(thutietij_dic, teacher_name)
+        #st.rerun() # Làm mới lại app để đóng popup cũ (nếu có) và hiển thị cái mới
+        # Khi gọi hàm, truyền tên giáo viên làm key duy nhất:
+        show_dict_popup(thutietij_dic, teacher_name, key=f"popup_{teacher_name}")
 
-    #selected_option = st.selectbox("👀 :red[XEM TKB TỪNG GIÁO VIÊN]", options=["-- Chọn Gv --"] + list_gvs_sorted, index=0)
-    #if selected_option != "-- Chọn Gv --":
-        #st.write('TKB cua gv '+selected_option)
-        #build_teacher_schedule(dfc, selected_option)
-        #show_dict_popup(dftkbgv)
+
+    # 5. Đặt đoạn kiểm tra và hiển thị Dialog ở cuối file script
+    #if st.session_state.active_dialog is not None:
+    #    dialog_info = st.session_state.active_dialog
+    #    #print(dialog_info)
+    #    show_dict_popup(dialog_info["data"], dialog_info["teacher_name"])
 
 # f3--- Hàm nút lưu vao excel bat ky luc nao tu luoi ---
 def save_button(): # dinh nghia ham save_button() co viec tao nut trong sidebar
@@ -1439,7 +1455,7 @@ if __name__ == "__main__":
             kiemtra_excel_button(st.session_state.dftkbc)
 
             # Chinh thong tin cau hinh in an
-            xem_chinh_tt_button()
+            xem_chinh_info_button()
 
             # Hien nut ham nhap de xep lai TKB
             xeplai_tkb_button(st.session_state.dftkbc)
