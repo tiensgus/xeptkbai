@@ -1035,10 +1035,13 @@ def xem_chinh_tt():
         ten_truong = st.text_input(":blue[Tên trường:]", value=current_info.get("ten_truong", ""))
         dia_chi = st.text_input(":blue[Địa chỉ:]", value=current_info.get("dia_chi", ""))
         so_dien_thoai = st.text_input(":blue[Số điện thoại:]", value=current_info.get("so_dien_thoai", ""))
-        
-        st.subheader("🏫 Tham số cấu hình xếp thời khóa biểu")
-        tong_so_lop = st.number_input(":blue[Tổng số lớp học:]", value=int(current_info.get("tong_so_lop", 50)), min_value=1)
-        so_tiet_toi_da = st.number_input(":blue[Số tiết dạy tối đa của GV / ngày:]", value=int(current_info.get("so_tiet_toi_da_mot_ngay", 5)), min_value=1, max_value=10)
+
+        st.subheader("🔎 Tra cứu các môn")
+        st.write(current_info["cac_mon"])
+
+        #st.subheader("🏫 Tham số cấu hình xếp thời khóa biểu")
+        #tong_so_lop = st.number_input(":blue[Tổng số lớp học:]", value=int(current_info.get("tong_so_lop", 50)), min_value=1)
+        #so_tiet_toi_da = st.number_input(":blue[Số tiết dạy tối đa của GV / ngày:]", value=int(current_info.get("so_tiet_toi_da_mot_ngay", 5)), min_value=1, max_value=10)
         
         # --- PHẦN CHỈNH SỬA KHUNG GIỜ HỌC CỦA 10 TIẾT ---
         st.subheader("⏰ Cấu hình giờ học (10 tiết)")
@@ -1452,6 +1455,7 @@ if __name__ == "__main__":
 
         with col2: # trang chinh
             # Hien thi menu chon  xem tkb tung gv
+            st.write("---")
             show_teacher_menu(st.session_state.dftkbc)
 
   
