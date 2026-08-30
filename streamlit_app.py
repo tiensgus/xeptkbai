@@ -430,8 +430,12 @@ def xem_chinh_info():
         st.session_state.active_dialog = None
         st.rerun()
 
-def xeplai_tkb_auto(dfc):
-    pass
+@st.dialog("Xeptkb_auto đang chạy...", width="medium")
+def chay_trinh_xeptkb(dfc):
+    st.write("Đang viết...")
+    if st.button("Đóng"):
+        st.session_state.active_dialog = None
+        st.rerun()
 
 
 @st.dialog("In Tkb Lớp", width="medium")
@@ -1756,8 +1760,8 @@ if __name__ == "__main__":
         if st.sidebar.button('✏️ Xem/Chỉnh Info', type="primary", use_container_width=True, key="xem_chinh_info"):
             st.session_state.active_dialog = "xem_chinh_info"
 
-        if st.sidebar.button('⚙️ Chạy Trình Xếp TKB', type="primary", use_container_width=True, key="CTXTKB"):
-            xeplai_tkb_auto(st.session_state.dftkbc)
+        if st.sidebar.button('⚙️ Chạy Trình Xếp TKB', type="primary", use_container_width=True, key="chay_trinh_xeptkb"):
+            st.session_state.active_dialog = "chay_trinh_xeptkb"
 
         if st.sidebar.button('🖨️ In TKB Giáo viên', type="primary", use_container_width=True, key="in_tkb_gv"):
             st.session_state.active_dialog = "in_tkb_gv"
@@ -1771,7 +1775,6 @@ if __name__ == "__main__":
         if st.sidebar.button('💾 Save TKB to Excel and Download', type="primary", use_container_width=True, key="save_excel_download"):
             st.session_state.active_dialog = "save_excel_download"
     
-
 
 
         ### Điều hướng hiển thị DUY NHẤT 1 dialog ở cuối script de khong gay LOI
@@ -1812,6 +1815,9 @@ if __name__ == "__main__":
 
         elif st.session_state.active_dialog == "save_excel_download":
             save_excel_download(st.session_state.dftkbc)
+
+        elif st.session_state.active_dialog == "chay_trinh_xeptkb":
+            chay_trinh_xeptkb(st.session_state.dftkbc)
 
 
     except FileNotFoundError: # neu chua co file ễcl thi yc upload file len
