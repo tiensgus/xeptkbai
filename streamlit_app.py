@@ -893,7 +893,8 @@ def  in_tkb_truong(dfc):
         st.rerun()
 
 
-def save_download_excel():
+@st.dialog("💾 Save to Excel and Download", width="medium")
+def save__excel_download():
     file_path = "Tkb_luu_last/tkb_chung.xlsx"
     try:
         # 1. Lưu file vào thư mục
@@ -914,6 +915,9 @@ def save_download_excel():
     except Exception as e:
         st.error(f"Lỗi khi lưu file: {e}")
 
+    if st.button("Đóng"):
+        st.session_state.active_dialog = None
+        st.rerun()
 
 @st.dialog("Xem/Chỉnh yêu cầu tránh tiết của Lớp", width="medium")
 def dialog_lop_trt(ten_lop, yc_hien_tai=None):
@@ -1005,8 +1009,8 @@ def dialog_lop_trt(ten_lop, yc_hien_tai=None):
                 df = pd.concat([df, new_row], ignore_index=True)
 
             save_data(df)
-            st.success(f"Đã lưu thành công dữ liệu cho lớp {ten_lop}!")
-            #st.rerun()
+            st.success(f"Đã lưu thành công tránh tiết cho lớp {ten_lop}!")
+            st.rerun()
 
 
     # Kiểm tra lớp có trong Excel chưa
@@ -1051,6 +1055,9 @@ def dialog_gv_trt(ten_gv, yc_hien_tai=None):
 
     def save_data(df):
         df.to_excel(EXCEL_FILE, index=False)
+        st.success(f"Đã lưu thành công tránh tiết cho Gv {ten_gv}!")
+        st.rerun()
+
 
 
     # Lấy dữ liệu hiện tại
@@ -1120,8 +1127,8 @@ def dialog_gv_trt(ten_gv, yc_hien_tai=None):
                 df = pd.concat([df, new_row], ignore_index=True)
 
             save_data(df)
-            st.success(f"Đã lưu thành công dữ liệu cho gv {ten_gv}!")
-            #st.rerun()
+            st.success(f"Đã lưu thành công tránh tiết cho lớp {ten_gv}!")
+            st.rerun()
 
 
     # Kiểm tra lớp có trong Excel chưa
@@ -1761,9 +1768,9 @@ if __name__ == "__main__":
         if st.sidebar.button('🖨️ In TKB TRƯỜNG', type="primary", use_container_width=True, key="in_tkb_truong"):
             st.session_state.active_dialog = "in_tkb_truong"
 
+        if st.sidebar.button('💾 Save TKB to Excel', type="primary", use_container_width=True, key="save_excel_download"):
+            save_excel_download()
 
-        if st.sidebar.button('💾 Save TKB to Excel', type="primary", use_container_width=True, key="LFTKBCNTE"):
-            save_download_excel()
 
 
         ### Điều hướng hiển thị DUY NHẤT 1 dialog ở cuối script de khong gay LOI
@@ -1802,6 +1809,8 @@ if __name__ == "__main__":
         elif st.session_state.active_dialog == "in_tkb_truong":
             in_tkb_truong(st.session_state.dftkbc)
 
+        elif st.session_state.active_dialog == "save_excel_download":
+            save_excel_download(st.session_state.dftkbc)
 
 
     except FileNotFoundError: # neu chua co file ễcl thi yc upload file len
