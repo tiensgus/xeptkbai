@@ -1710,38 +1710,38 @@ if __name__ == "__main__":
 
 
         with col1_tc:
-            list_cac_lop = [col for col in df_tkbc.columns[2:] if col not in ['index', 'Unnamed: 0', '::auto_unique_id::', ':auto_unique_id:']]
+            gv_list = rut_list_gv(df_tkbc)
             st.selectbox(
-                "✏️ ***:green[CHỈNH TRÁNH TIẾT CỦA LỚP]***", 
-                options=list_cac_lop,
+                "👀 :blue[Xem TKB Gv:]", 
+                options=gv_list,
                 index=None,
-                placeholder="Chọn Lớp để chỉnh", 
-                key="select_lop_trt", 
-                on_change=on_lop_change_trt
+                placeholder="Chọn GV để xem", 
+                key="select_gv_tkb", 
+                on_change=on_gv_change_tkb
             )
 
 
         with col2_tc:
             gv_list = rut_list_gv(df_tkbc)
             st.selectbox(
-                "✏️ ***:blue[CHỈNH TRÁNH TIẾT CỦA GV]***", 
+                "✏️ ***:green[Yc tránh của gv:]***", 
                 options=gv_list,
                 index=None,
-                placeholder="Chọn GV để chỉnh", 
+                placeholder="Chọn gv để chỉnh", 
                 key="select_gv_trt", 
                 on_change=on_gv_change_trt
             )
 
 
         with col3_tc:
-            gv_list = rut_list_gv(df_tkbc)
+            list_cac_lop = [col for col in df_tkbc.columns[2:] if col not in ['index', 'Unnamed: 0', '::auto_unique_id::', ':auto_unique_id:']]
             st.selectbox(
-                "👀 :red[XEM TKB GIÁO VIÊN]", 
-                options=gv_list,
+                "✏️ ***:red[Yc tránh của lớp:]***", 
+                options=list_cac_lop,
                 index=None,
-                placeholder="Chọn GV để xem", 
-                key="select_gv_tkb", 
-                on_change=on_gv_change_tkb
+                placeholder="Chọn lớp để chỉnh", 
+                key="select_lop_trt", 
+                on_change=on_lop_change_trt
             )
 
 
