@@ -25,7 +25,7 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
-JSON_FILE_PATH = "info_school.json"
+JSON_FILE_PATH = "info_tranh_tiet/info_school.json"
 if os.path.exists(JSON_FILE_PATH):
     try:
         with open(JSON_FILE_PATH, "r", encoding="utf-8") as f:
@@ -201,7 +201,7 @@ def kiemtra_excel():
         # 4. Xuất ra bảng DataFrame mới và lưu vào file Excel
         df_output = pd.DataFrame(data)
         df_output = df_output.fillna("").astype(str)
-        df_output.to_excel("gv_yc_tranh.xlsx", index=False)
+        df_output.to_excel("info_tranh_tiet/gv_yc_tranh.xlsx", index=False)
 
         return "Đã tạo file gv_yc_tranh.xlsx thành công!"
 
@@ -233,11 +233,11 @@ def kiemtra_excel():
         # 4. Xuất ra bảng DataFrame mới và lưu vào file Excel
         df_output = pd.DataFrame(result_data)
         df_output = df_output.fillna("").astype(str)
-        df_output.to_excel("lop_yc_tranh.xlsx", index=False)
+        df_output.to_excel("info_tranh_tiet/lop_yc_tranh.xlsx", index=False)
 
         return "Đã tạo file lop_yc_tranh.xlsx thành công!"
 
-    file_path = "gv_yc_tranh.xlsx"
+    file_path = "info_tranh_tiet/gv_yc_tranh.xlsx"
     # 1. Đọc dữ liệu từ tệp Excel
     df = pd.read_excel(file_path)
     # 2. Cắt khoảng trắng 2 bên của tên cột (nếu có)
@@ -254,7 +254,8 @@ def kiemtra_excel():
     # 1. Đọc dữ liệu từ tệp Excel
     df = pd.read_excel(file_path)
 
-    if not os.path.exists("lop_yc_tranh.xlsx"):
+    if not os.path.exists("info_tranh_tiet/lop_yc_tranh.xlsx"):
+
         kq_tao_lop_yc_tranh = tao_file_lop_yc_tranh(df)
     else:
         kq_tao_lop_yc_tranh = "Đã có file lop_yc_tranh.xlsx"    
@@ -304,7 +305,7 @@ def kiemtra_excel():
     so_mon = len(set_mon_day)                
     list_giao_vien = sorted(list(set_giao_vien))
 
-    if not os.path.exists("gv_yc_tranh.xlsx"):
+    if not os.path.exists("info_tranh_tiet/gv_yc_tranh.xlsx"):
         kq_tao_gv_yc_tranh = tao_file_gv_yc_tranh(list_giao_vien)
     else:
         kq_tao_gv_yc_tranh = "Đã có file gv_yc_tranh.xlsx"    
@@ -327,7 +328,7 @@ def kiemtra_excel():
 @st.dialog("✏️ Xem/Chỉnh các thông số cấu hình dưới đây và nhấn 'Lưu thay đổi' để cập nhật hệ thống.", width="")
 def xem_chinh_info():
     # Định nghĩa đường dẫn tới tệp JSON trên server
-    JSON_FILE_PATH = "info_school.json"
+    JSON_FILE_PATH = "info_tranh_tiet/info_school.json"
 
     # Cấu hình danh sách 10 tiết mặc định ban đầu
     GIO_HOC_MAC_DINH = [
@@ -690,7 +691,7 @@ def  in_tkb_truong(dfc):
         10: "16:30-17:15",
     }
     # Đường dẫn tới tệp cấu hình JSON trên server
-    JSON_FILE_PATH = "info_school.json"
+    JSON_FILE_PATH = "info_tranh_tiet/info_school.json"
     # Tiến hành đọc cấu hình giờ học thực tế từ tệp JSON
     if os.path.exists(JSON_FILE_PATH):
         try:
@@ -894,7 +895,7 @@ def  in_tkb_truong(dfc):
 
 
 @st.dialog("💾 Save to Excel and Download", width="medium")
-def save__excel_download():
+def save_excel_download(dftkbc):
     file_path = "Tkb_luu_last/tkb_chung.xlsx"
     try:
         # 1. Lưu file vào thư mục
@@ -923,7 +924,8 @@ def save__excel_download():
 def dialog_lop_trt(ten_lop, yc_hien_tai=None):
     st.write(ten_lop)
 
-    EXCEL_FILE = "lop_yc_tranh.xlsx"
+    EXCEL_FILE = "info_tranh_tiet/lop_yc_tranh.xlsx"
+    
     lop = ten_lop
 
     # --- 1. ĐỌC/KHỞI TẠO FILE EXCEL ---
@@ -942,6 +944,8 @@ def dialog_lop_trt(ten_lop, yc_hien_tai=None):
 
     def save_data(df):
         df.to_excel(EXCEL_FILE, index=False)
+        st.success(f"Đã lưu thành công tránh tiết cho lớp {ten_lop}!")
+
 
 
     # Lấy dữ liệu hiện tại
@@ -1009,8 +1013,6 @@ def dialog_lop_trt(ten_lop, yc_hien_tai=None):
                 df = pd.concat([df, new_row], ignore_index=True)
 
             save_data(df)
-            st.success(f"Đã lưu thành công tránh tiết cho lớp {ten_lop}!")
-            st.rerun()
 
 
     # Kiểm tra lớp có trong Excel chưa
@@ -1033,7 +1035,7 @@ def dialog_lop_trt(ten_lop, yc_hien_tai=None):
 def dialog_gv_trt(ten_gv, yc_hien_tai=None):
     st.write(ten_gv)
     
-    EXCEL_FILE = "gv_yc_tranh.xlsx"
+    EXCEL_FILE = "info_tranh_tiet/gv_yc_tranh.xlsx"
     gv = ten_gv
 
     # --- 1. ĐỌC/KHỞI TẠO FILE EXCEL ---
@@ -1056,7 +1058,7 @@ def dialog_gv_trt(ten_gv, yc_hien_tai=None):
     def save_data(df):
         df.to_excel(EXCEL_FILE, index=False)
         st.success(f"Đã lưu thành công tránh tiết cho Gv {ten_gv}!")
-        st.rerun()
+
 
 
 
@@ -1127,8 +1129,6 @@ def dialog_gv_trt(ten_gv, yc_hien_tai=None):
                 df = pd.concat([df, new_row], ignore_index=True)
 
             save_data(df)
-            st.success(f"Đã lưu thành công tránh tiết cho lớp {ten_gv}!")
-            st.rerun()
 
 
     # Kiểm tra lớp có trong Excel chưa
@@ -1301,7 +1301,7 @@ def  in_tkb_gv(dfc):
         "13:00 - 13:45", "13:50 - 14:35", "14:50 - 15:35", "15:40 - 16:25", "16:30 - 17:15"
     ]
     # Đường dẫn tới tệp cấu hình JSON trên server
-    JSON_FILE_PATH = "info_school.json"
+    JSON_FILE_PATH = "info_tranh_tiet/info_school.json"
     # Tiến hành đọc cấu hình giờ học thực tế từ tệp JSON
     if os.path.exists(JSON_FILE_PATH):
         try:
@@ -1768,8 +1768,9 @@ if __name__ == "__main__":
         if st.sidebar.button('🖨️ In TKB TRƯỜNG', type="primary", use_container_width=True, key="in_tkb_truong"):
             st.session_state.active_dialog = "in_tkb_truong"
 
-        if st.sidebar.button('💾 Save TKB to Excel', type="primary", use_container_width=True, key="save_excel_download"):
-            save_excel_download()
+        if st.sidebar.button('💾 Save TKB to Excel and Download', type="primary", use_container_width=True, key="save_excel_download"):
+            st.session_state.active_dialog = "save_excel_download"
+    
 
 
 
