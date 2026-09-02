@@ -53,8 +53,80 @@ def show_tkb_chung(dfc, swap_enabled=False):
     swap_cells_js = JsCode(f"""
     function(params) {{
         let isSwapActive = {str(swap_enabled).lower()};
-        if (!isSwapActive) return;
+        if (!isSwapActive) {{
+            let teacherValue = params.value;
+            if (!teacherValue) return;
 
+            let teacherPrefix = teacherValue.split("_")[0];
+
+            let timetable = {{}};
+            params.api.forEachNode(function(node) {{
+                let row = node.data;
+                let thu = row["Thứ"];
+                let tiet = row["Tiết"];
+                if (!timetable[tiet]) timetable[tiet] = {{}};
+
+                // Lấy danh sách lớp từ keys của row
+                let listLop = Object.keys(row).filter(k => k !== "Thứ" && k !== "Tiết");
+
+                listLop.forEach(function(classCol) {{
+                    let cellValue = row[classCol];
+                    if (cellValue) {{
+                        let parts = cellValue.split("_");
+                        let prefix = parts[0];
+                        let subject = parts[1] || "";
+                        if (prefix === teacherPrefix) {{
+                            timetable[tiet][thu] = classCol + "-" + subject;
+                        }}
+                    }}
+                }});
+            }});
+
+            // Dựng bảng HTML
+            let tableHtml = "<table border='1' style='border-collapse:collapse;width:100%;text-align:center;'>";
+            tableHtml += "<tr><th>Tiết</th><th>Thứ 2</th><th>Thứ 3</th><th>Thứ 4</th><th>Thứ 5</th><th>Thứ 6</th><th>Thứ 7</th></tr>";
+
+            for (let tiet=1; tiet<=10; tiet++) {{
+                tableHtml += "<tr><td>"+tiet+"</td>";
+                for (let thu=2; thu<=7; thu++) {{
+                    let val = timetable[tiet] && timetable[tiet][thu] ? timetable[tiet][thu] : "";
+                    tableHtml += "<td>"+val+"</td>";
+                }}
+                tableHtml += "</tr>";
+            }}
+            tableHtml += "</table>";
+
+            // Hiển thị modal
+            let modalDiv = document.createElement("div");
+            modalDiv.style.position = "fixed";
+            modalDiv.style.top = "0";
+            modalDiv.style.left = "0";
+            modalDiv.style.width = "100%";
+            modalDiv.style.height = "100%";
+            modalDiv.style.backgroundColor = "rgba(0,0,0,0.5)";
+            modalDiv.style.display = "flex";
+            modalDiv.style.alignItems = "center";
+            modalDiv.style.justifyContent = "center";
+            modalDiv.style.zIndex = "9999";
+
+            let innerDiv = document.createElement("div");
+            innerDiv.style.backgroundColor = "#fff";
+            innerDiv.style.padding = "20px";
+            innerDiv.style.borderRadius = "8px";
+            innerDiv.style.maxHeight = "120%";
+            innerDiv.style.overflowY = "auto";
+            innerDiv.innerHTML = "<h3>Thời khóa biểu của GV "+teacherPrefix+"</h3>" + tableHtml + "<br><button id='closeModal'>Đóng</button>";
+
+            modalDiv.appendChild(innerDiv);
+            document.body.appendChild(modalDiv);
+
+            document.getElementById("closeModal").onclick = function() {{
+                modalDiv.remove();
+            }};
+            return;
+        }}
+
+        // Phần hoán vị giữ nguyên
         if (!window.firstSelectedCell) {{
             window.firstSelectedCell = {{
                 rowIndex: params.rowIndex,
@@ -75,6 +147,8 @@ def show_tkb_chung(dfc, swap_enabled=False):
         }}
     }}
     """)
+
+ 
 
     # JS tô màu nền & kiểm tra trùng
     cell_style_js = JsCode("""
@@ -120,15 +194,24 @@ def show_tkb_chung(dfc, swap_enabled=False):
         }
 
         let currentValue = params.value;
-        if (currentValue !== "" && currentValue !== "nan") {
+
+        if (currentValue && typeof currentValue === "string") {
+            // Lấy chuỗi con trước dấu "_"
+            let currentPrefix = currentValue.split("_")[0];
             let count = 0;
+
             for (let key in params.data) {
                 if (key !== "Thứ" && key !== "Tiết") {
-                    if (params.data[key] === currentValue) {
-                        count++;
+                    let cellValue = params.data[key];
+                    if (cellValue && typeof cellValue === "string") {
+                        let cellPrefix = cellValue.split("_")[0];
+                        if (cellPrefix === currentPrefix) {
+                            count++;
+                        }
                     }
                 }
             }
+
             if (count > 1) {
                 style.color = '#b71c1c';
                 style.fontWeight = 'bold';
@@ -1824,10 +1907,4 @@ if __name__ == "__main__":
         uploaded_file = st.sidebar.file_uploader("📂 Chọn file Excel (.xlsx)", type=["xlsx"])
         if uploaded_file is not None:
             pass
-
-
-#Cho ví dụ mã python 1 app có :
-#2 dialog được gọi bởi 2 nút đặt ở sidebar
-#2 dialog được gọi bởi 2 nút đặt ở main
-#để làm rõ cách hoạt động vào mỗi thời điểm chỉ có có 1 dialog hoạt động.
 
