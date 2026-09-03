@@ -2091,7 +2091,7 @@ def  in_tkb_gv(dfc):
             hien_thi_pdf_tren_web(pdf_file_tong, height=800)
 
     #--- TAB 3: XEM RIÊNG TỪNG GIÁO VIÊN ---
-    with tab3:t
+    with tab3:
         st.write("Chưa viết mã!")
 
     if st.button("Đóng"):
