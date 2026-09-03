@@ -16,6 +16,10 @@ import base64
 import json
 from reportlab.platypus import (PageBreak,Paragraph,SimpleDocTemplate,Spacer,Table,TableStyle,)
 
+from collections import Counter
+from ortools.sat.python import cp_model
+import time, threading
+
 #################################### SET DAU TRANG #####################################
 st.set_page_config(layout="wide")
 st.markdown("""
@@ -35,6 +39,221 @@ if os.path.exists(JSON_FILE_PATH):
 
 st.subheader('🏫 ' + school_info.get("ten_truong",""))
 ##########################################################################################
+# 2. Định nghĩa hàm show_tkb_chung (truyền thêm tham số swap_mode)
+def show_tkb_chung_xep(dfc, swap_enabled=False):
+    custom_css = {
+        ".my-blue-header": {
+            "background-color": "#0d47a1 !important",
+            "color": "#ffffff !important",
+            "font-weight": "bold !important"
+        },
+        ".my-blue-header .ag-header-cell-text": {
+            "color": "#ffffff !important"
+        }
+    }
+
+    # JS hoán vị ô: chỉ chạy logic hoán vị nếu swap_enabled == True
+    swap_cells_js = JsCode(f"""
+    function(params) {{
+        let isSwapActive = {str(swap_enabled).lower()};
+        if (!isSwapActive) {{
+            let teacherValue = params.value;
+            if (!teacherValue) return;
+
+            let teacherPrefix = teacherValue.split("_")[0];
+
+            let timetable = {{}};
+            params.api.forEachNode(function(node) {{
+                let row = node.data;
+                let thu = row["Thứ"];
+                let tiet = row["Tiết"];
+                if (!timetable[tiet]) timetable[tiet] = {{}};
+
+                // Lấy danh sách lớp từ keys của row
+                let listLop = Object.keys(row).filter(k => k !== "Thứ" && k !== "Tiết");
+
+                listLop.forEach(function(classCol) {{
+                    let cellValue = row[classCol];
+                    if (cellValue) {{
+                        let parts = cellValue.split("_");
+                        let prefix = parts[0];
+                        let subject = parts[1] || "";
+                        if (prefix === teacherPrefix) {{
+                            timetable[tiet][thu] = classCol + "-" + subject;
+                        }}
+                    }}
+                }});
+            }});
+
+            // Dựng bảng HTML với màu nền theo Tiết
+            let tableHtml = "<table border='1' style='border-collapse:collapse;width:100%;text-align:center;'>";
+            tableHtml += "<tr><th>Tiết</th><th>Thứ 2</th><th>Thứ 3</th><th>Thứ 4</th><th>Thứ 5</th><th>Thứ 6</th><th>Thứ 7</th></tr>";
+
+            for (let tiet=1; tiet<=10; tiet++) {{
+                // chọn màu nền theo tiết
+                let bgColor = (tiet <= 5) ? "#e0f7fa" : "#fff9c4"; // xanh lạt / vàng lạt
+                tableHtml += "<tr style='background-color:"+bgColor+"'><td>"+tiet+"</td>";
+                for (let thu=2; thu<=7; thu++) {{
+                    let val = timetable[tiet] && timetable[tiet][thu] ? timetable[tiet][thu] : "";
+                    tableHtml += "<td>"+val+"</td>";
+                }}
+                tableHtml += "</tr>";
+            }}
+            tableHtml += "</table>";
+
+            // Hiển thị modal
+            let modalDiv = document.createElement("div");
+            modalDiv.style.position = "fixed";
+            modalDiv.style.top = "0";
+            modalDiv.style.left = "0";
+            modalDiv.style.width = "100%";
+            modalDiv.style.height = "100%";
+            modalDiv.style.backgroundColor = "rgba(0,0,0,0.5)";
+            modalDiv.style.display = "flex";
+            modalDiv.style.alignItems = "center";
+            modalDiv.style.justifyContent = "center";
+            modalDiv.style.zIndex = "9999";
+
+            let innerDiv = document.createElement("div");
+            innerDiv.style.backgroundColor = "#fff";
+            innerDiv.style.padding = "10px";
+            innerDiv.style.borderRadius = "8px";
+            innerDiv.style.maxHeight = "140%";
+            innerDiv.style.maxWidth = "140%";
+            innerDiv.style.fontSize = "12px";
+            innerDiv.style.overflowY = "auto";
+            innerDiv.innerHTML = "<h3>TKB của Gv: "+teacherPrefix+"</h3>" + tableHtml + "<br><button id='closeModal'>Đóng</button>";
+
+            modalDiv.appendChild(innerDiv);
+            document.body.appendChild(modalDiv);
+
+            document.getElementById("closeModal").onclick = function() {{
+                modalDiv.remove();
+            }};
+            return;
+        }}
+
+        // Phần hoán vị giữ nguyên
+        if (!window.firstSelectedCell) {{
+            window.firstSelectedCell = {{
+                rowIndex: params.rowIndex,
+                colId: params.column.colId,
+                value: params.value,
+                rowNode: params.node
+            }};
+            params.api.refreshCells({{force:true}});
+        }} else {{
+            let cell1 = window.firstSelectedCell;
+            let cell2_value = params.value;
+
+            cell1.rowNode.setDataValue(cell1.colId, cell2_value);
+            params.node.setDataValue(params.column.colId, cell1.value);
+
+            window.firstSelectedCell = null;
+            params.api.refreshCells({{force:true}});
+        }}
+    }}
+    """)
+
+ 
+
+    # JS tô màu nền & kiểm tra trùng
+    cell_style_js = JsCode("""
+    function(params) {
+        if (!params.data) return null;
+
+        let thuVal = parseInt(params.data["Thứ"]);
+        let tietVal = parseInt(params.data["Tiết"]);
+        let style = {};
+
+        if (!isNaN(thuVal) && !isNaN(tietVal)) {
+            if (thuVal === 2) {
+                style.backgroundColor = (tietVal <= 5) ? '#EBF3FF' : '#D6E4FF';
+            }
+            if (thuVal === 3) {
+                style.backgroundColor = (tietVal <= 5) ? '#E8F8EC' : '#D1F2D9';
+            }
+            if (thuVal === 4) {
+                style.backgroundColor = (tietVal <= 5) ? '#F0FCFD' : '#E0F7FA';
+            }
+            if (thuVal === 5) {
+                style.backgroundColor = (tietVal <= 5) ? '#FFFDE7' : '#FFF9D9';
+            }
+            if (thuVal === 6) {
+                style.backgroundColor = (tietVal <= 5) ? '#fae7cb' : '#f7deb8';
+            }
+            if (thuVal === 7) {
+                style.backgroundColor = (tietVal <= 5) ? '#FAEDF9' : '#F3E5F5';
+            }
+        }
+
+        if (params.column.colId === "Thứ" || params.column.colId === "Tiết") {
+            style.color = "darkblue";
+            style.fontWeight = "900";
+        }
+
+        if (window.firstSelectedCell && 
+            window.firstSelectedCell.rowIndex === params.rowIndex && 
+            window.firstSelectedCell.colId === params.column.colId) {
+            style.backgroundColor = '#ffc107'; // Tô màu vàng nổi bật ô đang chọn hoán vị
+            style.color = '#000000';
+            style.fontWeight = 'bold';
+        }
+
+        let currentValue = params.value;
+
+        if (currentValue && typeof currentValue === "string") {
+            // Lấy chuỗi con trước dấu "_"
+            let currentPrefix = currentValue.split("_")[0];
+            let count = 0;
+
+            for (let key in params.data) {
+                if (key !== "Thứ" && key !== "Tiết") {
+                    let cellValue = params.data[key];
+                    if (cellValue && typeof cellValue === "string") {
+                        let cellPrefix = cellValue.split("_")[0];
+                        if (cellPrefix === currentPrefix) {
+                            count++;
+                        }
+                    }
+                }
+            }
+
+            if (count > 1) {
+                style.color = '#b71c1c';
+                style.fontWeight = 'bold';
+            }
+        }
+
+        return style;
+    }
+    """)
+
+    gob = GridOptionsBuilder.from_dataframe(dfc)
+    gob.configure_grid_options(onCellClicked=swap_cells_js)  
+    gob.configure_default_column(
+        cellStyle=cell_style_js,
+        headerClass="my-blue-header",
+        suppressMovable=True,
+        resizable=False,
+        editable=True,
+        width=90, minWidth=90, maxWidth=90
+    )
+
+    gob.configure_column("Thứ", pinned="left", width=60, minWidth=60, maxWidth=60, headerClass="my-blue-header")
+    gob.configure_column("Tiết", pinned="left", width=60, minWidth=60, maxWidth=60, headerClass="my-blue-header")
+
+    grid_response = AgGrid(
+        dfc,
+        gridOptions=gob.build(),
+        allow_unsafe_jscode=True,
+        key="grid_timetable_new",
+        update_mode="MODEL_CHANGED"
+    )
+
+    if grid_response and "data" in grid_response:
+        st.session_state.dftkbc = pd.DataFrame(grid_response["data"])
+
 
 # 2. Định nghĩa hàm show_tkb_chung (truyền thêm tham số swap_mode)
 def show_tkb_chung(dfc, swap_enabled=False):
@@ -517,9 +736,141 @@ def xem_chinh_info():
         st.session_state.active_dialog = None
         st.rerun()
 
-@st.dialog("Xeptkb_auto đang chạy...", width="medium")
-def chay_trinh_xeptkb(dfc):
-    st.write("Đang viết...")
+@st.dialog("Chạy trình xếp TKB", width="large")
+def chay_trinh_xeptkb(df):
+    tbao_ttx = st.empty()
+    tbao_ttx.write("Waiting for...")
+
+    #st.write(df)
+
+    
+    #df = pd.read_excel("tkb_chung.xlsx")
+
+    # Chuẩn bị dữ liệu
+    list_lop = [col for col in df.columns if col not in ["Thứ","Tiết"]]
+
+    assignments = []
+    gv_mon_pairs = set()
+    for _, row in df.iterrows():
+        thu = int(row["Thứ"])
+        tiet = int(row["Tiết"])
+        for lop in list_lop:
+            val = row[lop]
+            if pd.notna(val) and val != "":
+                parts = val.split("_")
+                gv = parts[0]
+                mon = parts[1] if len(parts) > 1 else ""
+                gv_mon_pairs.add((gv, mon))
+                assignments.append((thu, tiet, lop, gv, mon))
+
+    count_mon = Counter([(lop, mon) for (_, _, lop, _, mon) in assignments])
+
+    # Khởi tạo mô hình
+    model = cp_model.CpModel()
+
+    thu_range = sorted(df["Thứ"].unique())
+    tiet_range = sorted(df["Tiết"].unique())
+
+    # Biến quyết định: chỉ tạo cho cặp GV-Môn hợp lệ
+    x = {}
+    for lop in list_lop:
+        for (gv, mon) in gv_mon_pairs:
+            for thu in thu_range:
+                for tiet in tiet_range:
+                    x[(lop, gv, mon, thu, tiet)] = model.NewBoolVar(f"x_{lop}_{gv}_{mon}_{thu}_{tiet}")
+
+    # Ràng buộc: ô trống giữ nguyên
+    for _, row in df.iterrows():
+        thu = int(row["Thứ"])
+        tiet = int(row["Tiết"])
+        for lop in list_lop:
+            val = row[lop]
+            if pd.isna(val) or val == "":
+                for (gv, mon) in gv_mon_pairs:
+                    model.Add(x[(lop, gv, mon, thu, tiet)] == 0)
+
+    # Ràng buộc 1: mỗi lớp có tối đa 1 môn/giáo viên tại mỗi (thu,tiet)
+    for lop in list_lop:
+        for thu in thu_range:
+            for tiet in tiet_range:
+                model.Add(sum(x[(lop, gv, mon, thu, tiet)] for (gv, mon) in gv_mon_pairs) <= 1)
+
+    # Ràng buộc 2: một giáo viên không dạy 2 lớp cùng lúc
+    for gv in set(g for (g, m) in gv_mon_pairs):
+        for thu in thu_range:
+            for tiet in tiet_range:
+                model.Add(sum(x[(lop, gv2, mon, thu, tiet)]
+                            for lop in list_lop
+                            for (gv2, mon) in gv_mon_pairs if gv2 == gv) <= 1)
+
+    # Ràng buộc 3: tổng số tiết mỗi môn/lớp đúng bằng count_mon
+    for (lop, mon), cnt in count_mon.items():
+        model.Add(sum(x[(lop, gv, mon, thu, tiet)]
+                    for (gv, m) in gv_mon_pairs if m == mon
+                    for thu in thu_range for tiet in tiet_range) == cnt)
+
+    # Hàm mục tiêu
+    model.Minimize(sum(x[(lop, gv, mon, thu, tiet)]
+                    for lop in list_lop
+                    for (gv, mon) in gv_mon_pairs
+                    for thu in thu_range for tiet in tiet_range))
+
+    # Giải với hiển thị thời gian chạy
+    solver = cp_model.CpSolver()
+
+    def run_solver():
+        global status
+        status = solver.Solve(model)
+
+    start_time = time.time()
+    t = threading.Thread(target=run_solver)
+    t.start()
+    while t.is_alive():
+        elapsed = (time.time() - start_time) / 1.0
+        tbao_ttx.write(f"Đã chạy {elapsed:.0f} giây...")
+        time.sleep(1)
+    t.join()
+    tbao_ttx.write(f"Tổng thời gian chạy: {(time.time()-start_time)/1:.0f} giây")
+
+    # Xuất kết quả
+    if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+        # Tính % đã xếp
+        total_assignments = sum(count_mon.values())
+        assigned = sum(solver.Value(x[(lop, gv, mon, thu, tiet)])
+                    for lop in list_lop
+                    for (gv, mon) in gv_mon_pairs
+                    for thu in thu_range for tiet in tiet_range)
+        percent = (assigned / total_assignments) * 100 if total_assignments > 0 else 0
+        tbao_ttx.write(f"Đã xếp được {assigned}/{total_assignments} tiết ({percent:.0f}%)")
+
+        rows = []
+        for thu in thu_range:
+            for tiet in tiet_range:
+                row = {"Thứ": thu, "Tiết": tiet}
+                for lop in list_lop:
+                    val = ""
+                    for (gv, mon) in gv_mon_pairs:
+                        if solver.Value(x[(lop, gv, mon, thu, tiet)]) == 1:
+                            val = f"{gv}_{mon}"
+                            break
+                    row[lop] = val
+                rows.append(row)
+
+        # Thứ tự cột giống đầu vào
+        columns_order = list(df.columns)   # ["Thứ","Tiết","6A1","6A2",...]
+        result_df = pd.DataFrame(rows, columns=columns_order)
+        # Xuất ra Excel
+        result_df.to_excel("tkb_chung_output.xlsx", index=False)
+        tbao_ttx.write("Đã xuất thời khóa biểu ra file tkb_chung_output.xlsx")
+        result_df = result_df.reset_index(drop=True)
+        
+        #swap_mode = st.toggle("🔄 ***:red[Tắt/Bật Hoán vị]***", value=False, key="swap_mode2")
+        show_tkb_chung_xep(result_df, swap_enabled=False)
+
+
+    else:
+        tbao_ttx.write("Không tìm được lời giải khả thi")
+    
     if st.button("Đóng"):
         st.session_state.active_dialog = None
         st.rerun()
@@ -1751,13 +2102,13 @@ def  in_tkb_gv(dfc):
 # --- Main ----------------------------------------------------------------
 if __name__ == "__main__":
     try:
-        df_tkbc = pd.read_excel("Tkb_luu_last/tkb_chung.xlsx")
+        df_tkbc = pd.read_excel("tkb_chung_output.xlsx")
         df_tkbc.iloc[:, 2:] = df_tkbc.iloc[:, 2:].fillna("").astype(str)
 
         st.session_state.dftkbc = df_tkbc
 
         # 1. Đặt nút Toggle ở ngoài hàm, trước khi gọi bảng hiển thị
-        swap_mode = st.toggle("🔄 ***:red[Tắt/Bật Hoán vị]***", value=False)
+        swap_mode = st.toggle("🔄 ***:red[Tắt/Bật Hoán vị]***", value=False, key="swap_mode1")
 
         #if swap_mode:
         #    st.info("Chế độ hoán vị đang BẬT: Hãy click chọn 2 ô để đổi chỗ.")
@@ -1905,8 +2256,7 @@ if __name__ == "__main__":
 
         elif st.session_state.active_dialog == "chay_trinh_xeptkb":
             chay_trinh_xeptkb(st.session_state.dftkbc)
-
-
+            
     except FileNotFoundError: # neu chua co file ễcl thi yc upload file len
         uploaded_file = st.sidebar.file_uploader("📂 Chọn file Excel (.xlsx)", type=["xlsx"])
         if uploaded_file is not None:
