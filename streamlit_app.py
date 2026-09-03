@@ -115,7 +115,8 @@ def show_tkb_chung(dfc, swap_enabled=False):
             innerDiv.style.backgroundColor = "#fff";
             innerDiv.style.padding = "10px";
             innerDiv.style.borderRadius = "8px";
-            innerDiv.style.maxHeight = "100%";
+            innerDiv.style.maxHeight = "140%";
+            innerDiv.style.maxWidth = "140%";
             innerDiv.style.fontSize = "12px";
             innerDiv.style.overflowY = "auto";
             innerDiv.innerHTML = "<h3>TKB của Gv: "+teacherPrefix+"</h3>" + tableHtml + "<br><button id='closeModal'>Đóng</button>";
