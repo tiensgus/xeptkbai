@@ -2091,7 +2091,7 @@ def  in_tkb_gv(dfc):
             hien_thi_pdf_tren_web(pdf_file_tong, height=800)
 
     #--- TAB 3: XEM RIÊNG TỪNG GIÁO VIÊN ---
-    with tab3:
+    with tab3:t
         st.write("Chưa viết mã!")
 
     if st.button("Đóng"):
@@ -2102,7 +2102,7 @@ def  in_tkb_gv(dfc):
 # --- Main ----------------------------------------------------------------
 if __name__ == "__main__":
     try:
-        df_tkbc = pd.read_excel("tkb_chung_output.xlsx")
+        df_tkbc = pd.read_excel("Tkb_luu_last/tkb_chung.xlsx")
         df_tkbc.iloc[:, 2:] = df_tkbc.iloc[:, 2:].fillna("").astype(str)
 
         st.session_state.dftkbc = df_tkbc
