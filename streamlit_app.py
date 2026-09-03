@@ -118,7 +118,7 @@ def show_tkb_chung(dfc, swap_enabled=False):
             innerDiv.style.maxHeight = "100%";
             innerDiv.style.fontSize = "12px";
             innerDiv.style.overflowY = "auto";
-            innerDiv.innerHTML = "<h3>Thời khóa biểu của GV "+teacherPrefix+"</h3>" + tableHtml + "<br><button id='closeModal'>Đóng</button>";
+            innerDiv.innerHTML = "<h3>TKB của Gv: "+teacherPrefix+"</h3>" + tableHtml + "<br><button id='closeModal'>Đóng</button>";
 
             modalDiv.appendChild(innerDiv);
             document.body.appendChild(modalDiv);
