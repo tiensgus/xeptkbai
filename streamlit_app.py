@@ -82,12 +82,14 @@ def show_tkb_chung(dfc, swap_enabled=False):
                 }});
             }});
 
-            // Dựng bảng HTML
+            // Dựng bảng HTML với màu nền theo Tiết
             let tableHtml = "<table border='1' style='border-collapse:collapse;width:100%;text-align:center;'>";
             tableHtml += "<tr><th>Tiết</th><th>Thứ 2</th><th>Thứ 3</th><th>Thứ 4</th><th>Thứ 5</th><th>Thứ 6</th><th>Thứ 7</th></tr>";
 
             for (let tiet=1; tiet<=10; tiet++) {{
-                tableHtml += "<tr><td>"+tiet+"</td>";
+                // chọn màu nền theo tiết
+                let bgColor = (tiet <= 5) ? "#e0f7fa" : "#fff9c4"; // xanh lạt / vàng lạt
+                tableHtml += "<tr style='background-color:"+bgColor+"'><td>"+tiet+"</td>";
                 for (let thu=2; thu<=7; thu++) {{
                     let val = timetable[tiet] && timetable[tiet][thu] ? timetable[tiet][thu] : "";
                     tableHtml += "<td>"+val+"</td>";
@@ -111,9 +113,10 @@ def show_tkb_chung(dfc, swap_enabled=False):
 
             let innerDiv = document.createElement("div");
             innerDiv.style.backgroundColor = "#fff";
-            innerDiv.style.padding = "20px";
+            innerDiv.style.padding = "10px";
             innerDiv.style.borderRadius = "8px";
-            innerDiv.style.maxHeight = "120%";
+            innerDiv.style.maxHeight = "100%";
+            innerDiv.style.fontSize = "12px";
             innerDiv.style.overflowY = "auto";
             innerDiv.innerHTML = "<h3>Thời khóa biểu của GV "+teacherPrefix+"</h3>" + tableHtml + "<br><button id='closeModal'>Đóng</button>";
 
@@ -1908,3 +1911,4 @@ if __name__ == "__main__":
         if uploaded_file is not None:
             pass
 
+#################
