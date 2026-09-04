@@ -19,7 +19,6 @@ from reportlab.platypus import (PageBreak,Paragraph,SimpleDocTemplate,Spacer,Tab
 from collections import Counter
 from ortools.sat.python import cp_model
 import time, threading
-
 #################################### SET DAU TRANG #####################################
 st.set_page_config(layout="wide")
 st.markdown("""
@@ -29,473 +28,112 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
-JSON_FILE_PATH = "info_tranh_tiet/info_school.json"
-if os.path.exists(JSON_FILE_PATH):
-    try:
-        with open(JSON_FILE_PATH, "r", encoding="utf-8") as f:
-            school_info = json.load(f)
-    except Exception as e:
-        print(f"Cảnh báo: Không thể đọc tệp JSON do lỗi: {e}")
+#########################################################################################
+@st.dialog("✏️ Xem/Chỉnh các thông số cấu hình dưới đây và nhấn 'Lưu thay đổi' để cập nhật hệ thống.", width="")
+def xem_chinh_info():
+    # Định nghĩa đường dẫn tới tệp JSON trên server
+    JSON_FILE_PATH = "info_tranh_tiet/info_school.json"
 
-st.subheader('🏫 ' + school_info.get("ten_truong",""))
-##########################################################################################
-# 2. Định nghĩa hàm show_tkb_chung (truyền thêm tham số swap_mode)
-def show_tkb_chung_xep(dfc, swap_enabled=False):
-    custom_css = {
-        ".my-blue-header": {
-            "background-color": "#0d47a1 !important",
-            "color": "#ffffff !important",
-            "font-weight": "bold !important"
-        },
-        ".my-blue-header .ag-header-cell-text": {
-            "color": "#ffffff !important"
+    # Cấu hình danh sách 10 tiết mặc định ban đầu
+    GIO_HOC_MAC_DINH = [
+        "07:00 - 07:45", "07:50 - 08:35", "08:50 - 09:35", "09:40 - 10:25", "10:30 - 11:15",
+        "13:00 - 13:45", "13:50 - 14:35", "14:50 - 15:35", "15:40 - 16:25", "16:30 - 17:15"
+    ]
+
+    # Hàm đọc dữ liệu từ tệp JSON
+    def doc_du_lieu_json(file_path):
+        if not os.path.exists(file_path):
+            du_lieu_mac_dinh = {
+                "ten_truong": "TRƯỜNG THPT NGUYEN THI XXXXXX",
+                "dia_chi": "Số 123 Đường ABC, Thành phố XYZ",
+                "so_dien_thoai": "024.1234.5678",
+                "tong_so_lop": 50,
+                "so_tiet_toi_da_mot_ngay": 5,
+                "Gio_hoc": GIO_HOC_MAC_DINH  # Thêm khóa mặc định vào đây
+            }
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(du_lieu_mac_dinh, f, ensure_ascii=False, indent=4)
+            return du_lieu_mac_dinh
+        
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            # Nếu file đã tồn tại nhưng chưa có key Gio_hoc thì tự động bổ sung
+            if "Gio_hoc" not in data:
+                data["Gio_hoc"] = GIO_HOC_MAC_DINH
+            return data
+
+    # Hàm lưu dữ liệu
+    def luu_du_lieu_json(file_path, du_lieu_moi):
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(du_lieu_moi, f, ensure_ascii=False, indent=4)
+
+    # --- GIAO DIỆN STREAMLIT ---
+    #st.title("⚙️ Cấu Hình Thông Tin & Khung Giờ Học")
+    #st.write("Chỉnh sửa các thông số cấu hình dưới đây và nhấn 'Lưu thay đổi' để cập nhật hệ thống.")
+
+    # Tải dữ liệu từ file
+    current_info = doc_du_lieu_json(JSON_FILE_PATH)
+
+    # Tạo Form chỉnh sửa
+    with st.form("form_edit_school_info"):
+        st.subheader("📝 Thông tin chung")
+        ten_truong = st.text_input(":blue[Tên trường:]", value=current_info.get("ten_truong", ""))
+        dia_chi = st.text_input(":blue[Địa chỉ:]", value=current_info.get("dia_chi", ""))
+        so_dien_thoai = st.text_input(":blue[Số điện thoại:]", value=current_info.get("so_dien_thoai", ""))
+
+        st.subheader("🔎 Tra cứu các môn")
+        st.write(current_info["cac_mon"])
+
+        #st.subheader("🏫 Tham số cấu hình xếp thời khóa biểu")
+        #tong_so_lop = st.number_input(":blue[Tổng số lớp học:]", value=int(current_info.get("tong_so_lop", 50)), min_value=1)
+        #so_tiet_toi_da = st.number_input(":blue[Số tiết dạy tối đa của GV / ngày:]", value=int(current_info.get("so_tiet_toi_da_mot_ngay", 5)), min_value=1, max_value=10)
+        
+        # --- PHẦN CHỈNH SỬA KHUNG GIỜ HỌC CỦA 10 TIẾT ---
+        st.subheader("⏰ Cấu hình giờ học (10 tiết)")
+        list_gio_hoc_hien_tai = current_info.get("Gio_hoc", GIO_HOC_MAC_DINH)
+        
+        # Tạo giao diện chia làm 2 cột: Ca sáng (Tiết 1-5) và Ca chiều (Tiết 6-10) cho gọn gàng
+        col1, col2 = st.columns(2)
+        updated_gio_hoc = []
+        
+        with col1:
+            st.markdown("**🌅 Ca Sáng**")
+            for i in range(5):
+                # Tạo ô nhập liệu cho từng tiết từ 1 đến 5
+                gio_tiet = st.text_input(f":blue[Tiết {i+1}:] ", value=list_gio_hoc_hien_tai[i], key=f"tiet_{i+1}")
+                updated_gio_hoc.append(gio_tiet)
+                
+        with col2:
+            st.markdown("**🌇 Ca Chiều**")
+            for i in range(5, 10):
+                # Tạo ô nhập liệu cho từng tiết từ 6 đến 10
+                gio_tiet = st.text_input(f":blue[Tiết {i+1}:] ", value=list_gio_hoc_hien_tai[i], key=f"tiet_{i+1}")
+                updated_gio_hoc.append(gio_tiet)
+
+        # Nút bấm submit form
+        nut_luu = st.form_submit_button("💾 :red[Lưu thay đổi vào Server]")
+
+    # Xử lý sự kiện lưu
+    if nut_luu:
+        updated_info = {
+            "ten_truong": ten_truong,
+            "dia_chi": dia_chi,
+            "so_dien_thoai": so_dien_thoai,
+            "tong_so_lop": tong_so_lop,
+            "so_tiet_toi_da_mot_ngay": so_tiet_toi_da,
+            "Gio_hoc": updated_gio_hoc  # Lưu danh sách 10 mốc giờ mới đã chỉnh sửa
         }
-    }
-
-    # JS hoán vị ô: chỉ chạy logic hoán vị nếu swap_enabled == True
-    swap_cells_js = JsCode(f"""
-    function(params) {{
-        let isSwapActive = {str(swap_enabled).lower()};
-        if (!isSwapActive) {{
-            let teacherValue = params.value;
-            if (!teacherValue) return;
-
-            let teacherPrefix = teacherValue.split("_")[0];
-
-            let timetable = {{}};
-            params.api.forEachNode(function(node) {{
-                let row = node.data;
-                let thu = row["Thứ"];
-                let tiet = row["Tiết"];
-                if (!timetable[tiet]) timetable[tiet] = {{}};
-
-                // Lấy danh sách lớp từ keys của row
-                let listLop = Object.keys(row).filter(k => k !== "Thứ" && k !== "Tiết");
-
-                listLop.forEach(function(classCol) {{
-                    let cellValue = row[classCol];
-                    if (cellValue) {{
-                        let parts = cellValue.split("_");
-                        let prefix = parts[0];
-                        let subject = parts[1] || "";
-                        if (prefix === teacherPrefix) {{
-                            timetable[tiet][thu] = classCol + "-" + subject;
-                        }}
-                    }}
-                }});
-            }});
-
-            // Dựng bảng HTML với màu nền theo Tiết
-            let tableHtml = "<table border='1' style='border-collapse:collapse;width:100%;text-align:center;'>";
-            tableHtml += "<tr><th>Tiết</th><th>Thứ 2</th><th>Thứ 3</th><th>Thứ 4</th><th>Thứ 5</th><th>Thứ 6</th><th>Thứ 7</th></tr>";
-
-            for (let tiet=1; tiet<=10; tiet++) {{
-                // chọn màu nền theo tiết
-                let bgColor = (tiet <= 5) ? "#e0f7fa" : "#fff9c4"; // xanh lạt / vàng lạt
-                tableHtml += "<tr style='background-color:"+bgColor+"'><td>"+tiet+"</td>";
-                for (let thu=2; thu<=7; thu++) {{
-                    let val = timetable[tiet] && timetable[tiet][thu] ? timetable[tiet][thu] : "";
-                    tableHtml += "<td>"+val+"</td>";
-                }}
-                tableHtml += "</tr>";
-            }}
-            tableHtml += "</table>";
-
-            // Hiển thị modal
-            let modalDiv = document.createElement("div");
-            modalDiv.style.position = "fixed";
-            modalDiv.style.top = "0";
-            modalDiv.style.left = "0";
-            modalDiv.style.width = "100%";
-            modalDiv.style.height = "100%";
-            modalDiv.style.backgroundColor = "rgba(0,0,0,0.5)";
-            modalDiv.style.display = "flex";
-            modalDiv.style.alignItems = "center";
-            modalDiv.style.justifyContent = "center";
-            modalDiv.style.zIndex = "9999";
-
-            let innerDiv = document.createElement("div");
-            innerDiv.style.backgroundColor = "#fff";
-            innerDiv.style.padding = "10px";
-            innerDiv.style.borderRadius = "8px";
-            innerDiv.style.maxHeight = "140%";
-            innerDiv.style.maxWidth = "140%";
-            innerDiv.style.fontSize = "12px";
-            innerDiv.style.overflowY = "auto";
-            innerDiv.innerHTML = "<h3>TKB của Gv: "+teacherPrefix+"</h3>" + tableHtml + "<br><button id='closeModal'>Đóng</button>";
-
-            modalDiv.appendChild(innerDiv);
-            document.body.appendChild(modalDiv);
-
-            document.getElementById("closeModal").onclick = function() {{
-                modalDiv.remove();
-            }};
-            return;
-        }}
-
-        // Phần hoán vị giữ nguyên
-        if (!window.firstSelectedCell) {{
-            window.firstSelectedCell = {{
-                rowIndex: params.rowIndex,
-                colId: params.column.colId,
-                value: params.value,
-                rowNode: params.node
-            }};
-            params.api.refreshCells({{force:true}});
-        }} else {{
-            let cell1 = window.firstSelectedCell;
-            let cell2_value = params.value;
-
-            cell1.rowNode.setDataValue(cell1.colId, cell2_value);
-            params.node.setDataValue(params.column.colId, cell1.value);
-
-            window.firstSelectedCell = null;
-            params.api.refreshCells({{force:true}});
-        }}
-    }}
-    """)
-
- 
-
-    # JS tô màu nền & kiểm tra trùng
-    cell_style_js = JsCode("""
-    function(params) {
-        if (!params.data) return null;
-
-        let thuVal = parseInt(params.data["Thứ"]);
-        let tietVal = parseInt(params.data["Tiết"]);
-        let style = {};
-
-        if (!isNaN(thuVal) && !isNaN(tietVal)) {
-            if (thuVal === 2) {
-                style.backgroundColor = (tietVal <= 5) ? '#EBF3FF' : '#D6E4FF';
-            }
-            if (thuVal === 3) {
-                style.backgroundColor = (tietVal <= 5) ? '#E8F8EC' : '#D1F2D9';
-            }
-            if (thuVal === 4) {
-                style.backgroundColor = (tietVal <= 5) ? '#F0FCFD' : '#E0F7FA';
-            }
-            if (thuVal === 5) {
-                style.backgroundColor = (tietVal <= 5) ? '#FFFDE7' : '#FFF9D9';
-            }
-            if (thuVal === 6) {
-                style.backgroundColor = (tietVal <= 5) ? '#fae7cb' : '#f7deb8';
-            }
-            if (thuVal === 7) {
-                style.backgroundColor = (tietVal <= 5) ? '#FAEDF9' : '#F3E5F5';
-            }
-        }
-
-        if (params.column.colId === "Thứ" || params.column.colId === "Tiết") {
-            style.color = "darkblue";
-            style.fontWeight = "900";
-        }
-
-        if (window.firstSelectedCell && 
-            window.firstSelectedCell.rowIndex === params.rowIndex && 
-            window.firstSelectedCell.colId === params.column.colId) {
-            style.backgroundColor = '#ffc107'; // Tô màu vàng nổi bật ô đang chọn hoán vị
-            style.color = '#000000';
-            style.fontWeight = 'bold';
-        }
-
-        let currentValue = params.value;
-
-        if (currentValue && typeof currentValue === "string") {
-            // Lấy chuỗi con trước dấu "_"
-            let currentPrefix = currentValue.split("_")[0];
-            let count = 0;
-
-            for (let key in params.data) {
-                if (key !== "Thứ" && key !== "Tiết") {
-                    let cellValue = params.data[key];
-                    if (cellValue && typeof cellValue === "string") {
-                        let cellPrefix = cellValue.split("_")[0];
-                        if (cellPrefix === currentPrefix) {
-                            count++;
-                        }
-                    }
-                }
-            }
-
-            if (count > 1) {
-                style.color = '#b71c1c';
-                style.fontWeight = 'bold';
-            }
-        }
-
-        return style;
-    }
-    """)
-
-    gob = GridOptionsBuilder.from_dataframe(dfc)
-    gob.configure_grid_options(onCellClicked=swap_cells_js)  
-    gob.configure_default_column(
-        cellStyle=cell_style_js,
-        headerClass="my-blue-header",
-        suppressMovable=True,
-        resizable=False,
-        editable=True,
-        width=90, minWidth=90, maxWidth=90
-    )
-
-    gob.configure_column("Thứ", pinned="left", width=60, minWidth=60, maxWidth=60, headerClass="my-blue-header")
-    gob.configure_column("Tiết", pinned="left", width=60, minWidth=60, maxWidth=60, headerClass="my-blue-header")
-
-    grid_response = AgGrid(
-        dfc,
-        gridOptions=gob.build(),
-        allow_unsafe_jscode=True,
-        key="grid_timetable_new",
-        update_mode="MODEL_CHANGED"
-    )
-
-    if grid_response and "data" in grid_response:
-        st.session_state.dftkbc = pd.DataFrame(grid_response["data"])
-
-
-# 2. Định nghĩa hàm show_tkb_chung (truyền thêm tham số swap_mode)
-def show_tkb_chung(dfc, swap_enabled=False):
-    custom_css = {
-        ".my-blue-header": {
-            "background-color": "#0d47a1 !important",
-            "color": "#ffffff !important",
-            "font-weight": "bold !important"
-        },
-        ".my-blue-header .ag-header-cell-text": {
-            "color": "#ffffff !important"
-        }
-    }
-
-    # JS hoán vị ô: chỉ chạy logic hoán vị nếu swap_enabled == True
-    swap_cells_js = JsCode(f"""
-    function(params) {{
-        let isSwapActive = {str(swap_enabled).lower()};
-        if (!isSwapActive) {{
-            let teacherValue = params.value;
-            if (!teacherValue) return;
-
-            let teacherPrefix = teacherValue.split("_")[0];
-
-            let timetable = {{}};
-            params.api.forEachNode(function(node) {{
-                let row = node.data;
-                let thu = row["Thứ"];
-                let tiet = row["Tiết"];
-                if (!timetable[tiet]) timetable[tiet] = {{}};
-
-                // Lấy danh sách lớp từ keys của row
-                let listLop = Object.keys(row).filter(k => k !== "Thứ" && k !== "Tiết");
-
-                listLop.forEach(function(classCol) {{
-                    let cellValue = row[classCol];
-                    if (cellValue) {{
-                        let parts = cellValue.split("_");
-                        let prefix = parts[0];
-                        let subject = parts[1] || "";
-                        if (prefix === teacherPrefix) {{
-                            timetable[tiet][thu] = classCol + "-" + subject;
-                        }}
-                    }}
-                }});
-            }});
-
-            // Dựng bảng HTML với màu nền theo Tiết
-            let tableHtml = "<table border='1' style='border-collapse:collapse;width:100%;text-align:center;'>";
-            tableHtml += "<tr><th>Tiết</th><th>Thứ 2</th><th>Thứ 3</th><th>Thứ 4</th><th>Thứ 5</th><th>Thứ 6</th><th>Thứ 7</th></tr>";
-
-            for (let tiet=1; tiet<=10; tiet++) {{
-                // chọn màu nền theo tiết
-                let bgColor = (tiet <= 5) ? "#e0f7fa" : "#fff9c4"; // xanh lạt / vàng lạt
-                tableHtml += "<tr style='background-color:"+bgColor+"'><td>"+tiet+"</td>";
-                for (let thu=2; thu<=7; thu++) {{
-                    let val = timetable[tiet] && timetable[tiet][thu] ? timetable[tiet][thu] : "";
-                    tableHtml += "<td>"+val+"</td>";
-                }}
-                tableHtml += "</tr>";
-            }}
-            tableHtml += "</table>";
-
-            // Hiển thị modal
-            let modalDiv = document.createElement("div");
-            modalDiv.style.position = "fixed";
-            modalDiv.style.top = "0";
-            modalDiv.style.left = "0";
-            modalDiv.style.width = "100%";
-            modalDiv.style.height = "100%";
-            modalDiv.style.backgroundColor = "rgba(0,0,0,0.5)";
-            modalDiv.style.display = "flex";
-            modalDiv.style.alignItems = "center";
-            modalDiv.style.justifyContent = "center";
-            modalDiv.style.zIndex = "9999";
-
-            let innerDiv = document.createElement("div");
-            innerDiv.style.backgroundColor = "#fff";
-            innerDiv.style.padding = "10px";
-            innerDiv.style.borderRadius = "8px";
-            innerDiv.style.maxHeight = "140%";
-            innerDiv.style.maxWidth = "140%";
-            innerDiv.style.fontSize = "12px";
-            innerDiv.style.overflowY = "auto";
-            innerDiv.innerHTML = "<h3>TKB của Gv: "+teacherPrefix+"</h3>" + tableHtml + "<br><button id='closeModal'>Đóng</button>";
-
-            modalDiv.appendChild(innerDiv);
-            document.body.appendChild(modalDiv);
-
-            document.getElementById("closeModal").onclick = function() {{
-                modalDiv.remove();
-            }};
-            return;
-        }}
-
-        // Phần hoán vị giữ nguyên
-        if (!window.firstSelectedCell) {{
-            window.firstSelectedCell = {{
-                rowIndex: params.rowIndex,
-                colId: params.column.colId,
-                value: params.value,
-                rowNode: params.node
-            }};
-            params.api.refreshCells({{force:true}});
-        }} else {{
-            let cell1 = window.firstSelectedCell;
-            let cell2_value = params.value;
-
-            cell1.rowNode.setDataValue(cell1.colId, cell2_value);
-            params.node.setDataValue(params.column.colId, cell1.value);
-
-            window.firstSelectedCell = null;
-            params.api.refreshCells({{force:true}});
-        }}
-    }}
-    """)
-
- 
-
-    # JS tô màu nền & kiểm tra trùng
-    cell_style_js = JsCode("""
-    function(params) {
-        if (!params.data) return null;
-
-        let thuVal = parseInt(params.data["Thứ"]);
-        let tietVal = parseInt(params.data["Tiết"]);
-        let style = {};
-
-        if (!isNaN(thuVal) && !isNaN(tietVal)) {
-            if (thuVal === 2) {
-                style.backgroundColor = (tietVal <= 5) ? '#EBF3FF' : '#D6E4FF';
-            }
-            if (thuVal === 3) {
-                style.backgroundColor = (tietVal <= 5) ? '#E8F8EC' : '#D1F2D9';
-            }
-            if (thuVal === 4) {
-                style.backgroundColor = (tietVal <= 5) ? '#F0FCFD' : '#E0F7FA';
-            }
-            if (thuVal === 5) {
-                style.backgroundColor = (tietVal <= 5) ? '#FFFDE7' : '#FFF9D9';
-            }
-            if (thuVal === 6) {
-                style.backgroundColor = (tietVal <= 5) ? '#fae7cb' : '#f7deb8';
-            }
-            if (thuVal === 7) {
-                style.backgroundColor = (tietVal <= 5) ? '#FAEDF9' : '#F3E5F5';
-            }
-        }
-
-        if (params.column.colId === "Thứ" || params.column.colId === "Tiết") {
-            style.color = "darkblue";
-            style.fontWeight = "900";
-        }
-
-        if (window.firstSelectedCell && 
-            window.firstSelectedCell.rowIndex === params.rowIndex && 
-            window.firstSelectedCell.colId === params.column.colId) {
-            style.backgroundColor = '#ffc107'; // Tô màu vàng nổi bật ô đang chọn hoán vị
-            style.color = '#000000';
-            style.fontWeight = 'bold';
-        }
-
-        let currentValue = params.value;
-
-        if (currentValue && typeof currentValue === "string") {
-            // Lấy chuỗi con trước dấu "_"
-            let currentPrefix = currentValue.split("_")[0];
-            let count = 0;
-
-            for (let key in params.data) {
-                if (key !== "Thứ" && key !== "Tiết") {
-                    let cellValue = params.data[key];
-                    if (cellValue && typeof cellValue === "string") {
-                        let cellPrefix = cellValue.split("_")[0];
-                        if (cellPrefix === currentPrefix) {
-                            count++;
-                        }
-                    }
-                }
-            }
-
-            if (count > 1) {
-                style.color = '#b71c1c';
-                style.fontWeight = 'bold';
-            }
-        }
-
-        return style;
-    }
-    """)
-
-    gob = GridOptionsBuilder.from_dataframe(dfc)
-    gob.configure_grid_options(onCellClicked=swap_cells_js)  
-    gob.configure_default_column(
-        cellStyle=cell_style_js,
-        headerClass="my-blue-header",
-        suppressMovable=True,
-        resizable=False,
-        editable=True,
-        width=90, minWidth=90, maxWidth=90
-    )
-
-    gob.configure_column("Thứ", pinned="left", width=60, minWidth=60, maxWidth=60, headerClass="my-blue-header")
-    gob.configure_column("Tiết", pinned="left", width=60, minWidth=60, maxWidth=60, headerClass="my-blue-header")
-
-    grid_response = AgGrid(
-        dfc,
-        gridOptions=gob.build(),
-        allow_unsafe_jscode=True,
-        key="grid_timetable_final",
-        update_mode="MODEL_CHANGED"
-    )
-
-    if grid_response and "data" in grid_response:
-        st.session_state.dftkbc = pd.DataFrame(grid_response["data"])
-
-
-
-@st.dialog("🚀 Tổng Quát", width="large")
-def tong_quat(dfc):
-    with st.form("Dẫn Nhập"):
-        st.subheader("💻 Đôi nét về Ứng dụng này:")
-        st.markdown('<p style="color: blue;">Ứng dụng này được viết để hỗ trợ cho việc xếp thời khóa biểu trong các Trường học tại VN. Nó được viết bằng mã Python với các thuật toán có trong modul OR-TOOLS của Google.</p>', unsafe_allow_html=True)
-
-        st.subheader("📋 Các bước làm việc với Ứng dụng:")
-        st.write(":green[Bước 1:]")
-        st.markdown('<p style="color: blue;">Nhập liệu vào file Excel (.xlsx), ví dụ như dưới đây. Chú ý rằng cột Thu và cột Tiet có các giá trị là số nguyên. Các cột còn lại có giá trị kiểu chuỗi. Các ô trống trong bàng hàm chứa ý nghĩa là không được xếp Gv nào vào. (Đó là ô cấm xếp). Tiêu đề các cột như Thu, Tiet, Lop_6A1, v.v...không có dấu. Lop_6A1,...phải viết theo mẫu đó. Các chuỗi trong các ô như Chính_TT hàm chứa Chính là tên Gv, TT là môn Toán, dấu _ ngăn cách. Môn có đúng 2 kí tự do ta đặt và sẽ ghi chú ý nghĩa trong tệp cấu hình. </p>', unsafe_allow_html=True)
-        st.dataframe(dfc, hide_index=True)
-        st.markdown('<p style="color: blue;">Tên Gv phải khác biệt (không có Gv nào trùng tên, nếu trùng thì lấy thêm tên đệm để khác biệt). Ví dụ T. An, M. An, K. An. Xếp ban đầu trùng hàng ngang vẫn được vì sau đó máy sẽ xếp lại. Nhớ rằng các ô để trống thì máy sẽ không xếp vào đó.</p>', unsafe_allow_html=True)
-
-        st.write(":green[Bước 2:]")
-        st.markdown('<p style="color: blue;">Ứng dụng này được viết để hỗ trợ cho việc xếp thời khóa biểu trong các Trường học tại VN. Nó được viết bằng mã Python với các thuật toán có trong modul OR-TOOLS của Google.</p>', unsafe_allow_html=True)
-
-        st.write(":green[Bước 3:]")
-        st.markdown('<p style="color: blue;">Ứng dụng này được viết để hỗ trợ cho việc xếp thời khóa biểu trong các Trường học tại VN. Nó được viết bằng mã Python với các thuật toán có trong modul OR-TOOLS của Google.</p>', unsafe_allow_html=True)
-
-        st.write(":green[Bước 4:]")
-        st.markdown('<p style="color: blue;">Ứng dụng này được viết để hỗ trợ cho việc xếp thời khóa biểu trong các Trường học tại VN. Nó được viết bằng mã Python với các thuật toán có trong modul OR-TOOLS của Google.</p>', unsafe_allow_html=True)
+        
+        luu_du_lieu_json(JSON_FILE_PATH, updated_info)
+        st.success("🎉 Đã cập nhật tệp info_school.json bao gồm cấu hình 'Gio_hoc' thành công!")
+        
+        with st.expander("👀 :red[Xem cấu trúc tệp JSON thực tế trên Server]"):
+            st.json(updated_info)
 
     if st.button("Đóng"):
         st.session_state.active_dialog = None
         st.rerun()
+
 
 @st.dialog("✔️ Kiểm tra File Excel", width="medium")
 def kiemtra_excel():
@@ -631,115 +269,36 @@ def kiemtra_excel():
         st.session_state.active_dialog = None
         st.rerun()
 
-@st.dialog("✏️ Xem/Chỉnh các thông số cấu hình dưới đây và nhấn 'Lưu thay đổi' để cập nhật hệ thống.", width="")
-def xem_chinh_info():
-    # Định nghĩa đường dẫn tới tệp JSON trên server
-    JSON_FILE_PATH = "info_tranh_tiet/info_school.json"
 
-    # Cấu hình danh sách 10 tiết mặc định ban đầu
-    GIO_HOC_MAC_DINH = [
-        "07:00 - 07:45", "07:50 - 08:35", "08:50 - 09:35", "09:40 - 10:25", "10:30 - 11:15",
-        "13:00 - 13:45", "13:50 - 14:35", "14:50 - 15:35", "15:40 - 16:25", "16:30 - 17:15"
-    ]
+@st.dialog("🚀 Tổng Quát", width="large")
+def tong_quat(dfc):
+    with st.form("Dẫn Nhập"):
+        st.subheader("💻 Đôi nét về Ứng dụng này:")
+        st.markdown('<p style="color: blue;">Ứng dụng này được viết để hỗ trợ cho việc xếp thời khóa biểu trong các Trường học tại VN. Nó được viết bằng mã Python với các thuật toán có trong modul OR-TOOLS của Google.</p>', unsafe_allow_html=True)
 
-    # Hàm đọc dữ liệu từ tệp JSON
-    def doc_du_lieu_json(file_path):
-        if not os.path.exists(file_path):
-            du_lieu_mac_dinh = {
-                "ten_truong": "TRƯỜNG THPT NGUYEN THI XXXXXX",
-                "dia_chi": "Số 123 Đường ABC, Thành phố XYZ",
-                "so_dien_thoai": "024.1234.5678",
-                "tong_so_lop": 50,
-                "so_tiet_toi_da_mot_ngay": 5,
-                "Gio_hoc": GIO_HOC_MAC_DINH  # Thêm khóa mặc định vào đây
-            }
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(du_lieu_mac_dinh, f, ensure_ascii=False, indent=4)
-            return du_lieu_mac_dinh
-        
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            # Nếu file đã tồn tại nhưng chưa có key Gio_hoc thì tự động bổ sung
-            if "Gio_hoc" not in data:
-                data["Gio_hoc"] = GIO_HOC_MAC_DINH
-            return data
+        st.subheader("📋 Các bước làm việc với Ứng dụng:")
+        st.write(":green[Bước 1:]")
+        st.markdown('<p style="color: blue;">Nhập liệu vào file Excel (.xlsx), ví dụ như dưới đây. Chú ý rằng cột Thu và cột Tiet có các giá trị là số nguyên. Các cột còn lại có giá trị kiểu chuỗi. Các ô trống trong bàng hàm chứa ý nghĩa là không được xếp Gv nào vào. (Đó là ô cấm xếp). Tiêu đề các cột như Thu, Tiet, Lop_6A1, v.v...không có dấu. Lop_6A1,...phải viết theo mẫu đó. Các chuỗi trong các ô như Chính_TT hàm chứa Chính là tên Gv, TT là môn Toán, dấu _ ngăn cách. Môn có đúng 2 kí tự do ta đặt và sẽ ghi chú ý nghĩa trong tệp cấu hình. </p>', unsafe_allow_html=True)
+        st.dataframe(dfc, hide_index=True)
+        st.markdown('<p style="color: blue;">Tên Gv phải khác biệt (không có Gv nào trùng tên, nếu trùng thì lấy thêm tên đệm để khác biệt). Ví dụ T. An, M. An, K. An. Xếp ban đầu trùng hàng ngang vẫn được vì sau đó máy sẽ xếp lại. Nhớ rằng các ô để trống thì máy sẽ không xếp vào đó.</p>', unsafe_allow_html=True)
 
-    # Hàm lưu dữ liệu
-    def luu_du_lieu_json(file_path, du_lieu_moi):
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(du_lieu_moi, f, ensure_ascii=False, indent=4)
+        st.write(":green[Bước 2:]")
+        st.markdown('<p style="color: blue;">Ứng dụng này được viết để hỗ trợ cho việc xếp thời khóa biểu trong các Trường học tại VN. Nó được viết bằng mã Python với các thuật toán có trong modul OR-TOOLS của Google.</p>', unsafe_allow_html=True)
 
-    # --- GIAO DIỆN STREAMLIT ---
-    #st.title("⚙️ Cấu Hình Thông Tin & Khung Giờ Học")
-    #st.write("Chỉnh sửa các thông số cấu hình dưới đây và nhấn 'Lưu thay đổi' để cập nhật hệ thống.")
+        st.write(":green[Bước 3:]")
+        st.markdown('<p style="color: blue;">Ứng dụng này được viết để hỗ trợ cho việc xếp thời khóa biểu trong các Trường học tại VN. Nó được viết bằng mã Python với các thuật toán có trong modul OR-TOOLS của Google.</p>', unsafe_allow_html=True)
 
-    # Tải dữ liệu từ file
-    current_info = doc_du_lieu_json(JSON_FILE_PATH)
-
-    # Tạo Form chỉnh sửa
-    with st.form("form_edit_school_info"):
-        st.subheader("📝 Thông tin chung")
-        ten_truong = st.text_input(":blue[Tên trường:]", value=current_info.get("ten_truong", ""))
-        dia_chi = st.text_input(":blue[Địa chỉ:]", value=current_info.get("dia_chi", ""))
-        so_dien_thoai = st.text_input(":blue[Số điện thoại:]", value=current_info.get("so_dien_thoai", ""))
-
-        st.subheader("🔎 Tra cứu các môn")
-        st.write(current_info["cac_mon"])
-
-        #st.subheader("🏫 Tham số cấu hình xếp thời khóa biểu")
-        #tong_so_lop = st.number_input(":blue[Tổng số lớp học:]", value=int(current_info.get("tong_so_lop", 50)), min_value=1)
-        #so_tiet_toi_da = st.number_input(":blue[Số tiết dạy tối đa của GV / ngày:]", value=int(current_info.get("so_tiet_toi_da_mot_ngay", 5)), min_value=1, max_value=10)
-        
-        # --- PHẦN CHỈNH SỬA KHUNG GIỜ HỌC CỦA 10 TIẾT ---
-        st.subheader("⏰ Cấu hình giờ học (10 tiết)")
-        list_gio_hoc_hien_tai = current_info.get("Gio_hoc", GIO_HOC_MAC_DINH)
-        
-        # Tạo giao diện chia làm 2 cột: Ca sáng (Tiết 1-5) và Ca chiều (Tiết 6-10) cho gọn gàng
-        col1, col2 = st.columns(2)
-        updated_gio_hoc = []
-        
-        with col1:
-            st.markdown("**🌅 Ca Sáng**")
-            for i in range(5):
-                # Tạo ô nhập liệu cho từng tiết từ 1 đến 5
-                gio_tiet = st.text_input(f":blue[Tiết {i+1}:] ", value=list_gio_hoc_hien_tai[i], key=f"tiet_{i+1}")
-                updated_gio_hoc.append(gio_tiet)
-                
-        with col2:
-            st.markdown("**🌇 Ca Chiều**")
-            for i in range(5, 10):
-                # Tạo ô nhập liệu cho từng tiết từ 6 đến 10
-                gio_tiet = st.text_input(f":blue[Tiết {i+1}:] ", value=list_gio_hoc_hien_tai[i], key=f"tiet_{i+1}")
-                updated_gio_hoc.append(gio_tiet)
-
-        # Nút bấm submit form
-        nut_luu = st.form_submit_button("💾 :red[Lưu thay đổi vào Server]")
-
-    # Xử lý sự kiện lưu
-    if nut_luu:
-        updated_info = {
-            "ten_truong": ten_truong,
-            "dia_chi": dia_chi,
-            "so_dien_thoai": so_dien_thoai,
-            "tong_so_lop": tong_so_lop,
-            "so_tiet_toi_da_mot_ngay": so_tiet_toi_da,
-            "Gio_hoc": updated_gio_hoc  # Lưu danh sách 10 mốc giờ mới đã chỉnh sửa
-        }
-        
-        luu_du_lieu_json(JSON_FILE_PATH, updated_info)
-        st.success("🎉 Đã cập nhật tệp info_school.json bao gồm cấu hình 'Gio_hoc' thành công!")
-        
-        with st.expander("👀 :red[Xem cấu trúc tệp JSON thực tế trên Server]"):
-            st.json(updated_info)
+        st.write(":green[Bước 4:]")
+        st.markdown('<p style="color: blue;">Ứng dụng này được viết để hỗ trợ cho việc xếp thời khóa biểu trong các Trường học tại VN. Nó được viết bằng mã Python với các thuật toán có trong modul OR-TOOLS của Google.</p>', unsafe_allow_html=True)
 
     if st.button("Đóng"):
         st.session_state.active_dialog = None
         st.rerun()
 
-@st.dialog("Chạy trình xếp TKB", width="large")
+@st.dialog("Chạy trình xếp TKB", width="medium")
 def chay_trinh_xeptkb(df):
     tbao_ttx = st.empty()
-    tbao_ttx.write("Waiting for...")
+    tbao_ttx.write(":red[Xin chờ xếp...]")
 
     #st.write(df)
 
@@ -827,7 +386,7 @@ def chay_trinh_xeptkb(df):
     t.start()
     while t.is_alive():
         elapsed = (time.time() - start_time) / 1.0
-        tbao_ttx.write(f"Đã chạy {elapsed:.0f} giây...")
+        tbao_ttx.write(f":green[Đã chạy {elapsed:.0f} giây...]")
         time.sleep(1)
     t.join()
     tbao_ttx.write(f"Tổng thời gian chạy: {(time.time()-start_time)/1:.0f} giây")
@@ -862,18 +421,224 @@ def chay_trinh_xeptkb(df):
         # Xuất ra Excel
         result_df.to_excel("tkb_chung_output.xlsx", index=False)
         tbao_ttx.write("Đã xuất thời khóa biểu ra file tkb_chung_output.xlsx")
-        result_df = result_df.reset_index(drop=True)
         
-        #swap_mode = st.toggle("🔄 ***:red[Tắt/Bật Hoán vị]***", value=False, key="swap_mode2")
-        show_tkb_chung_xep(result_df, swap_enabled=False)
-
-
+        st.session_state.df_current = result_df
+        
+        tbao_ttx.success("Đã xếp xong và hiển thị trong bảng!")
     else:
         tbao_ttx.write("Không tìm được lời giải khả thi")
-    
-    if st.button("Đóng"):
-        st.session_state.active_dialog = None
-        st.rerun()
+
+
+
+# Hàm giả lập xếp TKB, trả về df_2
+def ham_lay_gob(dfc, swap_enabled):
+    gob = GridOptionsBuilder.from_dataframe(dfc)
+    gob.configure_default_column(editable=True, groupable=True)
+    gob.configure_selection('single', use_checkbox=True)
+
+    custom_css = {
+        ".my-blue-header": {
+            "background-color": "#0d47a1 !important",
+            "color": "#ffffff !important",
+            "font-weight": "bold !important"
+        },
+        ".my-blue-header .ag-header-cell-text": {
+            "color": "#ffffff !important"
+        }
+    }
+
+    # JS hoán vị ô: chỉ chạy logic hoán vị nếu swap_enabled == True
+    swap_cells_js = JsCode(f"""
+    function(params) {{
+        let isSwapActive = {str(swap_enabled).lower()};
+        if (!isSwapActive) {{
+            let teacherValue = params.value;
+            if (!teacherValue) return;
+
+            let teacherPrefix = teacherValue.split("_")[0];
+
+            let timetable = {{}};
+            params.api.forEachNode(function(node) {{
+                let row = node.data;
+                let thu = row["Thứ"];
+                let tiet = row["Tiết"];
+                if (!timetable[tiet]) timetable[tiet] = {{}};
+
+                // Lấy danh sách lớp từ keys của row
+                let listLop = Object.keys(row).filter(k => k !== "Thứ" && k !== "Tiết");
+
+                listLop.forEach(function(classCol) {{
+                    let cellValue = row[classCol];
+                    if (cellValue) {{
+                        let parts = cellValue.split("_");
+                        let prefix = parts[0];
+                        let subject = parts[1] || "";
+                        if (prefix === teacherPrefix) {{
+                            timetable[tiet][thu] = classCol + "-" + subject;
+                        }}
+                    }}
+                }});
+            }});
+
+            // Dựng bảng HTML với màu nền theo Tiết
+            let tableHtml = "<table border='1' style='border-collapse:collapse;width:100%;text-align:center;'>";
+            tableHtml += "<tr><th>Tiết</th><th>Thứ 2</th><th>Thứ 3</th><th>Thứ 4</th><th>Thứ 5</th><th>Thứ 6</th><th>Thứ 7</th></tr>";
+
+            for (let tiet=1; tiet<=10; tiet++) {{
+                // chọn màu nền theo tiết
+                let bgColor = (tiet <= 5) ? "#e0f7fa" : "#fff9c4"; // xanh lạt / vàng lạt
+                tableHtml += "<tr style='background-color:"+bgColor+"'><td>"+tiet+"</td>";
+                for (let thu=2; thu<=7; thu++) {{
+                    let val = timetable[tiet] && timetable[tiet][thu] ? timetable[tiet][thu] : "";
+                    tableHtml += "<td>"+val+"</td>";
+                }}
+                tableHtml += "</tr>";
+            }}
+            tableHtml += "</table>";
+
+            // Hiển thị modal
+            let modalDiv = document.createElement("div");
+            modalDiv.style.position = "fixed";
+            modalDiv.style.top = "0";
+            modalDiv.style.left = "0";
+            modalDiv.style.width = "100%";
+            modalDiv.style.height = "100%";
+            modalDiv.style.backgroundColor = "rgba(0,0,0,0.5)";
+            modalDiv.style.display = "flex";
+            modalDiv.style.alignItems = "center";
+            modalDiv.style.justifyContent = "center";
+            modalDiv.style.zIndex = "9999";
+
+            let innerDiv = document.createElement("div");
+            innerDiv.style.backgroundColor = "#fff";
+            innerDiv.style.padding = "10px";
+            innerDiv.style.borderRadius = "8px";
+            innerDiv.style.maxHeight = "140%";
+            innerDiv.style.maxWidth = "140%";
+            innerDiv.style.fontSize = "12px";
+            innerDiv.style.overflowY = "auto";
+            innerDiv.innerHTML = "<h3>TKB của Gv: "+teacherPrefix+"</h3>" + tableHtml + "<br><button id='closeModal'>Đóng</button>";
+
+            modalDiv.appendChild(innerDiv);
+            document.body.appendChild(modalDiv);
+
+            document.getElementById("closeModal").onclick = function() {{
+                modalDiv.remove();
+            }};
+            return;
+        }}
+
+        // Phần hoán vị giữ nguyên
+        if (!window.firstSelectedCell) {{
+            window.firstSelectedCell = {{
+                rowIndex: params.rowIndex,
+                colId: params.column.colId,
+                value: params.value,
+                rowNode: params.node
+            }};
+            params.api.refreshCells({{force:true}});
+        }} else {{
+            let cell1 = window.firstSelectedCell;
+            let cell2_value = params.value;
+
+            cell1.rowNode.setDataValue(cell1.colId, cell2_value);
+            params.node.setDataValue(params.column.colId, cell1.value);
+
+            window.firstSelectedCell = null;
+            params.api.refreshCells({{force:true}});
+        }}
+    }}
+    """)
+
+ 
+
+    # JS tô màu nền & kiểm tra trùng
+    cell_style_js = JsCode("""
+    function(params) {
+        if (!params.data) return null;
+
+        let thuVal = parseInt(params.data["Thứ"]);
+        let tietVal = parseInt(params.data["Tiết"]);
+        let style = {};
+
+        if (!isNaN(thuVal) && !isNaN(tietVal)) {
+            if (thuVal === 2) {
+                style.backgroundColor = (tietVal <= 5) ? '#EBF3FF' : '#D6E4FF';
+            }
+            if (thuVal === 3) {
+                style.backgroundColor = (tietVal <= 5) ? '#E8F8EC' : '#D1F2D9';
+            }
+            if (thuVal === 4) {
+                style.backgroundColor = (tietVal <= 5) ? '#F0FCFD' : '#E0F7FA';
+            }
+            if (thuVal === 5) {
+                style.backgroundColor = (tietVal <= 5) ? '#FFFDE7' : '#FFF9D9';
+            }
+            if (thuVal === 6) {
+                style.backgroundColor = (tietVal <= 5) ? '#fae7cb' : '#f7deb8';
+            }
+            if (thuVal === 7) {
+                style.backgroundColor = (tietVal <= 5) ? '#FAEDF9' : '#F3E5F5';
+            }
+        }
+
+        if (params.column.colId === "Thứ" || params.column.colId === "Tiết") {
+            style.color = "darkblue";
+            style.fontWeight = "900";
+        }
+
+        if (window.firstSelectedCell && 
+            window.firstSelectedCell.rowIndex === params.rowIndex && 
+            window.firstSelectedCell.colId === params.column.colId) {
+            style.backgroundColor = '#ffc107'; // Tô màu vàng nổi bật ô đang chọn hoán vị
+            style.color = '#000000';
+            style.fontWeight = 'bold';
+        }
+
+        let currentValue = params.value;
+
+        if (currentValue && typeof currentValue === "string") {
+            // Lấy chuỗi con trước dấu "_"
+            let currentPrefix = currentValue.split("_")[0];
+            let count = 0;
+
+            for (let key in params.data) {
+                if (key !== "Thứ" && key !== "Tiết") {
+                    let cellValue = params.data[key];
+                    if (cellValue && typeof cellValue === "string") {
+                        let cellPrefix = cellValue.split("_")[0];
+                        if (cellPrefix === currentPrefix) {
+                            count++;
+                        }
+                    }
+                }
+            }
+
+            if (count > 1) {
+                style.color = '#b71c1c';
+                style.fontWeight = 'bold';
+            }
+        }
+
+        return style;
+    }
+    """)
+
+    gob = GridOptionsBuilder.from_dataframe(dfc)
+    gob.configure_grid_options(onCellClicked=swap_cells_js)  
+    gob.configure_default_column(
+        cellStyle=cell_style_js,
+        headerClass="my-blue-header",
+        suppressMovable=True,
+        resizable=False,
+        editable=True,
+        width=90, minWidth=90, maxWidth=90
+    )
+
+    gob.configure_column("Thứ", pinned="left", width=60, minWidth=60, maxWidth=60, headerClass="my-blue-header")
+    gob.configure_column("Tiết", pinned="left", width=60, minWidth=60, maxWidth=60, headerClass="my-blue-header")
+    return gob.build()
+
 
 
 @st.dialog("In Tkb Lớp", width="medium")
@@ -1341,7 +1106,7 @@ def save_excel_download(dftkbc):
     file_path = "Tkb_luu_last/tkb_chung.xlsx"
     try:
         # 1. Lưu file vào thư mục
-        st.session_state.dftkbc.to_excel(file_path, index=False)
+        st.session_state.df_current.to_excel(file_path, index=False)
         st.success(f"🎉 Đã lưu TKB cập nhật thành công vào tệp: {file_path}")
         
         # 2. Đọc file và tạo nút Download
@@ -2099,167 +1864,168 @@ def  in_tkb_gv(dfc):
         st.rerun()
     
 
-# --- Main ----------------------------------------------------------------
-if __name__ == "__main__":
-    try:
-        df_tkbc = pd.read_excel("Tkb_luu_last/tkb_chung.xlsx")
-        df_tkbc.iloc[:, 2:] = df_tkbc.iloc[:, 2:].fillna("").astype(str)
+#####################################
+st.subheader("Xếp TKB với tiensg89@")
 
-        st.session_state.dftkbc = df_tkbc
+# Đọc dữ liệu từ Excel
+df_1 = pd.read_excel("Tkb_luu_last/tkb_chung.xlsx")
+df_1.iloc[:, 2:] = df_1.iloc[:, 2:].fillna("").astype(str)
 
-        # 1. Đặt nút Toggle ở ngoài hàm, trước khi gọi bảng hiển thị
-        swap_mode = st.toggle("🔄 ***:red[Tắt/Bật Hoán vị]***", value=False, key="swap_mode1")
+#st.session_state.df_current = df_1
 
-        #if swap_mode:
-        #    st.info("Chế độ hoán vị đang BẬT: Hãy click chọn 2 ô để đổi chỗ.")
-        #else:
-        #    st.caption("Chế độ hoán vị đang TẮT: Bạn có thể lướt xem bảng thoải mái.")
+# Khởi tạo session state .df_current----------
+if "df_current" not in st.session_state:
+    st.session_state.df_current = df_1
+#---------------------------------------------
 
-        # 3. Gọi hàm hiển thị
-        if "dftkbc" in st.session_state:
-            show_tkb_chung(st.session_state.dftkbc, swap_enabled=swap_mode)
+st.sidebar.header('⚙️Thời Khóa Biểu')
 
-     
-        #st.write("---")
+#--------------------------------------------
+### 1. Khởi tạo session state .active_dialog
+if "active_dialog" not in st.session_state:
+    st.session_state.active_dialog = None
+#--------------------------------------------
 
-        # tao 2 col1 o sidebar, col2 o trang chinh
-        col1_tc, col2_tc, col3_tc = st.columns(3)
+if st.sidebar.button('🚀Tổng Quát', type="primary", use_container_width=True, key="tong_quat"):
+    st.session_state.active_dialog = "tong_quat"
 
-        ### 1. Khởi tạo session state #
-        #-------------------------------------------
-        if "active_dialog" not in st.session_state:
-            st.session_state.active_dialog = None
+if st.sidebar.button('✔️Kiểm tra File Excel', type="primary", use_container_width=True, key="kiemtra_excel"):
+    st.session_state.active_dialog = "kiemtra_excel"
 
+if st.sidebar.button('✏️Xem/Chỉnh Info', type="primary", use_container_width=True, key="xem_chinh_info"):
+    st.session_state.active_dialog = "xem_chinh_info"
 
-        # Callback xử lý khi người dùng chọn GV
-        def on_lop_change_trt():
-            if st.session_state.select_lop_trt is not None:
-                st.session_state.active_dialog = "lop_trt"
-
-        def on_gv_change_trt():
-            if st.session_state.select_gv_trt is not None:
-                st.session_state.active_dialog = "gv_trt"
+if st.sidebar.button('⚙️Xếp lại TKB auto', type="primary", use_container_width=True, key="chay_trinh_xeptkb"):
+    st.session_state.active_dialog = "chay_trinh_xeptkb"
 
 
+if st.sidebar.button('💾 Save TKB to Excel and Download', type="primary", use_container_width=True, key="save_excel_download"):
+    st.session_state.active_dialog = "save_excel_download"
 
-        def on_gv_change_tkb():
-            if st.session_state.select_gv_tkb is not None:
-                st.session_state.active_dialog = "gv_tkb"
+if st.sidebar.button('🖨️ In TKB Giáo viên', type="primary", use_container_width=True, key="in_tkb_gv"):
+    st.session_state.active_dialog = "in_tkb_gv"
 
+if st.sidebar.button('🖨️ In TKB Lóp', type="primary", use_container_width=True, key="in_tkb_lop"):
+    st.session_state.active_dialog = "in_tkb_lop"
 
-        with col1_tc:
-            gv_list = rut_list_gv(df_tkbc)
-            st.selectbox(
-                "👀 :blue[Xem TKB Gv:]", 
-                options=gv_list,
-                index=None,
-                placeholder="Chọn GV để xem", 
-                key="select_gv_tkb", 
-                on_change=on_gv_change_tkb
-            )
+if st.sidebar.button('🖨️ In TKB TRƯỜNG', type="primary", use_container_width=True, key="in_tkb_truong"):
+    st.session_state.active_dialog = "in_tkb_truong"
 
 
-        with col2_tc:
-            gv_list = rut_list_gv(df_tkbc)
-            st.selectbox(
-                "✏️ ***:green[Yc tránh của gv:]***", 
-                options=gv_list,
-                index=None,
-                placeholder="Chọn gv để chỉnh", 
-                key="select_gv_trt", 
-                on_change=on_gv_change_trt
-            )
+#------------------------------------------------------------------------
+### Điều hướng hiển thị DUY NHẤT 1 dialog ở cuối script de khong gay LOI
+#------------------------------------------------------------------------
+if st.session_state.active_dialog == "chay_trinh_xeptkb":
+    #chay trinh xep voi df_1 la excel dau vao
+    # co the thay df_1 bang st.session_state.df_current vi cho nay hien gio st.session_state.df_current=df_1 
+    chay_trinh_xeptkb(df_1)
+    #khi  chay den cuoi chay_trinh_xeptkb(df_1) thi xay ra st.session_state.df_current=df_2 hay df_ketquaxep
+
+swap_mode = st.toggle("🔄 ***:red[Tắt/Bật Hoán vị (chỉnh thủ công)]***", value=False)
+# Hiển thị lưới với df_current
+AgGrid(
+    st.session_state.df_current.reset_index(drop=True),
+    gridOptions=ham_lay_gob(st.session_state.df_current, swap_mode),
+    allow_unsafe_jscode=True,
+    key="grid_timetable_final",
+    update_mode="MODEL_CHANGED"
+)
+
+if st.session_state.active_dialog == "lop_trt" and st.session_state.select_lop_trt is not None:
+    #st.write(st.session_state.select_lop_trt)
+    dialog_lop_trt(st.session_state.select_lop_trt)
+
+elif st.session_state.active_dialog == "gv_trt" and st.session_state.select_gv_trt is not None:
+    #st.write(st.session_state.select_gv_trt)
+    dialog_gv_trt(st.session_state.select_gv_trt) ### st.session_state.select_gv_trt la tengv da hon, select_gv_trt la key
+
+elif st.session_state.active_dialog == "gv_tkb" and st.session_state.select_gv_tkb is not None:
+    #st.write(st.session_state.select_gv_tkb)
+    ten_gv = st.session_state.select_gv_tkb
+    df_tkb_gv = rut_df_tkb_gv(st.session_state.df_current, ten_gv)
+    dialog_gv_tkb(df_tkb_gv, ten_gv)    
 
 
-        with col3_tc:
-            list_cac_lop = [col for col in df_tkbc.columns[2:] if col not in ['index', 'Unnamed: 0', '::auto_unique_id::', ':auto_unique_id:']]
-            st.selectbox(
-                "✏️ ***:red[Yc tránh của lớp:]***", 
-                options=list_cac_lop,
-                index=None,
-                placeholder="Chọn lớp để chỉnh", 
-                key="select_lop_trt", 
-                on_change=on_lop_change_trt
-            )
+elif st.session_state.active_dialog == "tong_quat":
+    tong_quat(st.session_state.df_current)
+
+elif st.session_state.active_dialog == "kiemtra_excel":
+    kiemtra_excel()
+
+elif st.session_state.active_dialog == "xem_chinh_info":
+    xem_chinh_info()
 
 
-        # Trong sidebar-----------------------
-        
-        st.sidebar.header('⚙️ Thời Khóa Biểu')
 
-        if st.sidebar.button('🚀 Tổng Quát', type="primary", use_container_width=True, key="tong_quat"):
-            st.session_state.active_dialog = "tong_quat"
-            #tong_quat(st.session_state.dftkbc)
-            # moi gan gia tri, cho dialog tong_quat thuc thi
+elif st.session_state.active_dialog == "save_excel_download":
+    save_excel_download(st.session_state.df_current)
 
-        if st.sidebar.button('✔️ Kiểm tra File Excel', type="primary", use_container_width=True, key="kiemtra_excel"):
-            st.session_state.active_dialog = "kiemtra_excel"
+elif st.session_state.active_dialog == "in_tkb_gv":
+    in_tkb_gv(st.session_state.df_current)
 
-        if st.sidebar.button('✏️ Xem/Chỉnh Info', type="primary", use_container_width=True, key="xem_chinh_info"):
-            st.session_state.active_dialog = "xem_chinh_info"
+elif st.session_state.active_dialog == "in_tkb_lop":
+    in_tkb_lop(st.session_state.df_current)
 
-        if st.sidebar.button('⚙️ Chạy Trình Xếp TKB', type="primary", use_container_width=True, key="chay_trinh_xeptkb"):
-            st.session_state.active_dialog = "chay_trinh_xeptkb"
-
-        if st.sidebar.button('🖨️ In TKB Giáo viên', type="primary", use_container_width=True, key="in_tkb_gv"):
-            st.session_state.active_dialog = "in_tkb_gv"
-
-        if st.sidebar.button('🖨️ In TKB Lóp', type="primary", use_container_width=True, key="in_tkb_lop"):
-            st.session_state.active_dialog = "in_tkb_lop"
-
-        if st.sidebar.button('🖨️ In TKB TRƯỜNG', type="primary", use_container_width=True, key="in_tkb_truong"):
-            st.session_state.active_dialog = "in_tkb_truong"
-
-        if st.sidebar.button('💾 Save TKB to Excel and Download', type="primary", use_container_width=True, key="save_excel_download"):
-            st.session_state.active_dialog = "save_excel_download"
-    
+elif st.session_state.active_dialog == "in_tkb_truong":
+    in_tkb_truong(st.session_state.df_current)
 
 
-        ### Điều hướng hiển thị DUY NHẤT 1 dialog ở cuối script de khong gay LOI
-        #-----------------------------------------------------------------------
+# tao 2 col1 o sidebar, col2 o trang chinh
+col1_tc, col2_tc, col3_tc = st.columns(3)
 
-        if st.session_state.active_dialog == "lop_trt" and st.session_state.select_lop_trt is not None:
-            #st.write(st.session_state.select_lop_trt)
-            dialog_lop_trt(st.session_state.select_lop_trt)
+# Callback xử lý khi người dùng chọn GV
+def on_lop_change_trt():
+    if st.session_state.select_lop_trt is not None:
+        st.session_state.active_dialog = "lop_trt"
 
-        elif st.session_state.active_dialog == "gv_trt" and st.session_state.select_gv_trt is not None:
-            #st.write(st.session_state.select_gv_trt)
-            dialog_gv_trt(st.session_state.select_gv_trt) ### st.session_state.select_gv_trt la tengv da hon, select_gv_trt la key
-
-        elif st.session_state.active_dialog == "gv_tkb" and st.session_state.select_gv_tkb is not None:
-            #st.write(st.session_state.select_gv_tkb)
-            ten_gv = st.session_state.select_gv_tkb
-            df_tkb_gv = rut_df_tkb_gv(df_tkbc, ten_gv)
-            dialog_gv_tkb(df_tkb_gv, ten_gv)    
+def on_gv_change_trt():
+    if st.session_state.select_gv_trt is not None:
+        st.session_state.active_dialog = "gv_trt"
 
 
-        elif st.session_state.active_dialog == "tong_quat":
-            tong_quat(st.session_state.dftkbc)
 
-        elif st.session_state.active_dialog == "kiemtra_excel":
-            kiemtra_excel()
+def on_gv_change_tkb():
+    if st.session_state.select_gv_tkb is not None:
+        st.session_state.active_dialog = "gv_tkb"
 
-        elif st.session_state.active_dialog == "xem_chinh_info":
-            xem_chinh_info()
 
-        elif st.session_state.active_dialog == "in_tkb_gv":
-            in_tkb_gv(st.session_state.dftkbc)
+with col1_tc:
+    gv_list = rut_list_gv(st.session_state.df_current)
+    st.selectbox(
+        "👀 :blue[Xem TKB Gv:]", 
+        options=gv_list,
+        index=None,
+        placeholder="Chọn GV để xem", 
+        key="select_gv_tkb", 
+        on_change=on_gv_change_tkb
+    )
 
-        elif st.session_state.active_dialog == "in_tkb_lop":
-            in_tkb_lop(st.session_state.dftkbc)
 
-        elif st.session_state.active_dialog == "in_tkb_truong":
-            in_tkb_truong(st.session_state.dftkbc)
+with col2_tc:
+    gv_list = rut_list_gv(st.session_state.df_current)
+    st.selectbox(
+        "✏️ ***:green[Yc tránh của gv:]***", 
+        options=gv_list,
+        index=None,
+        placeholder="Chọn gv để chỉnh", 
+        key="select_gv_trt", 
+        on_change=on_gv_change_trt
+    )
 
-        elif st.session_state.active_dialog == "save_excel_download":
-            save_excel_download(st.session_state.dftkbc)
 
-        elif st.session_state.active_dialog == "chay_trinh_xeptkb":
-            chay_trinh_xeptkb(st.session_state.dftkbc)
-            
-    except FileNotFoundError: # neu chua co file ễcl thi yc upload file len
-        uploaded_file = st.sidebar.file_uploader("📂 Chọn file Excel (.xlsx)", type=["xlsx"])
-        if uploaded_file is not None:
-            pass
+with col3_tc:
+    list_cac_lop = [col for col in st.session_state.df_current.columns[2:] if col not in ['index', 'Unnamed: 0', '::auto_unique_id::', ':auto_unique_id:']]
+    st.selectbox(
+        "✏️ ***:red[Yc tránh của lớp:]***", 
+        options=list_cac_lop,
+        index=None,
+        placeholder="Chọn lớp để chỉnh", 
+        key="select_lop_trt", 
+        on_change=on_lop_change_trt
+    )
 
-#################
+
+
+
+
+
