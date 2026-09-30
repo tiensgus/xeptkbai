@@ -1,0 +1,18 @@
+[
+    {
+        "1- GV dạy tối thiểu 2 tiết và tối đa 6 tiết / ngày nếu đến dạy.": true,
+        "2- Số tiết GV nghỉ xen kẽ giữa các tiết dạy trong ngày tối đa là 2.": true,
+        "3- Môn NV, TT phải có ít nhất một lần tiết đôi trong tuần.": true,
+        "4- Số tiết tối đa cho mỗi môn là 2 tiết / ngày.": true,
+        "5- Cố găng tránh xếp cho GV theo yêu cầu trong bảng excel tránh tiết.": true,
+        "6- Chào cờ đầu tuần vào Thứ 2-Tiết 1.": true
+    },
+    {
+        "1- GV dạy tối thiểu 2 tiết và tối đa 6 tiết / ngày nếu đến dạy.": "func_rangbuoc1",
+        "2- Số tiết GV nghỉ xen kẽ giữa các tiết dạy trong ngày tối đa là 2.": "func_rangbuoc2",
+        "3- Môn NV, TT phải có ít nhất một lần tiết đôi trong tuần.": "func_rangbuoc3",
+        "4- Số tiết tối đa cho mỗi môn là 2 tiết / ngày.": "func_rangbuoc4",
+        "5- Tránh xếp cho GV theo yêu cầu trong bảng excel tránh tiết.": "func_rangbuoc5",
+        "6- Chào cờ đầu tuần vào Thứ 2-Tiết 1.": "func_rangbuoc6"
+    }
+]
