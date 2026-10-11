@@ -3,6 +3,7 @@ import json, os
 import pandas as pd
 from xhtml2pdf import pisa
 
+
 # --------------------------------------------------
 @st.dialog("Định lại ràng buộc xếp", width="medium")
 def resetrangbuoc():
@@ -186,31 +187,27 @@ def chinhinfo():
         st.session_state.active_dialog = None
         st.rerun()
 
-import pandas as pd
-from xhtml2pdf import pisa
-import os
-import json
 
 def rut_list_gv(df):
-  set_giao_vien = set()
-  cot_cac_lop = df.columns[2:].tolist()   # Danh sách cac lop (tieu de cua cac cot trong bang tu cot 2)
+    set_giao_vien = set()
+    cot_cac_lop = df.columns[2:].tolist()   # Danh sách cac lop (tieu de cua cac cot trong bang tu cot 2)
 
-  # Duyệt qua từng dòng dữ liệu (bỏ qua hàng tiêu đề vì Pandas đã tự lấy làm df.columns)
-  for index, row in df.iterrows():
-      thu = row.iloc[0]   # goi thu la cot dau tien (cs 0) trong bang (khong phai la ten tieu de cot- Thứ)
-      tiet = row.iloc[1]  # goi tiet la cot ke (cs ) trong bang, (khong phai la ten tieu de cot- Tiết)
-      # Duyệt qua từng cột lớp trong dòng đó
-      for lop in cot_cac_lop:
-          gia_tri_o = row[lop]
-          # Kiểm tra ô trống (NaN hoặc chuỗi trống)
-          if not (pd.isna(gia_tri_o) or str(gia_tri_o).strip() == "" or str(gia_tri_o).lower() == "nan"):
-              if "_" in gia_tri_o:
-                  chuoi_o = str(gia_tri_o).strip()    #cat cac khoang trang 2 ben
-                  gv = chuoi_o.split('_')[0].strip()
-                  if gv != "":
-                      set_giao_vien.add(gv)
-  list_giao_vien = sorted(list(set_giao_vien))
-  return list_giao_vien
+    # Duyệt qua từng dòng dữ liệu (bỏ qua hàng tiêu đề vì Pandas đã tự lấy làm df.columns)
+    for index, row in df.iterrows():
+        thu = row.iloc[0]   # goi thu la cot dau tien (cs 0) trong bang (khong phai la ten tieu de cot- Thứ)
+        tiet = row.iloc[1]  # goi tiet la cot ke (cs ) trong bang, (khong phai la ten tieu de cot- Tiết)
+        # Duyệt qua từng cột lớp trong dòng đó
+        for lop in cot_cac_lop:
+            gia_tri_o = row[lop]
+            # Kiểm tra ô trống (NaN hoặc chuỗi trống)
+            if not (pd.isna(gia_tri_o) or str(gia_tri_o).strip() == "" or str(gia_tri_o).lower() == "nan"):
+                if "_" in gia_tri_o:
+                    chuoi_o = str(gia_tri_o).strip()    #cat cac khoang trang 2 ben
+                    gv = chuoi_o.split('_')[0].strip()
+                    if gv != "":
+                        set_giao_vien.add(gv)
+    list_giao_vien = sorted(list(set_giao_vien))
+    return list_giao_vien
 
 def rut_list_gv(df):
     set_giao_vien = set()
@@ -234,71 +231,71 @@ def rut_list_gv(df):
     return list_giao_vien
 
 def lay_tt_tu_info_school():
-  # Đường dẫn tới tệp cấu hình JSON trên server
-  JSON_FILE_PATH = "info_school/info_school.json"
-  if os.path.exists(JSON_FILE_PATH):
-    try:
-        with open(JSON_FILE_PATH, "r", encoding="utf-8") as f:
-            school_info = json.load(f)
-        return school_info
-    except Exception as e:
-        # Nếu tệp JSON bị lỗi cú pháp khi người dùng sửa, in ra cảnh báo và dùng giờ mặc định
-        print(f"Cảnh báo: Không thể đọc tệp JSON do lỗi: {e}")
+    # Đường dẫn tới tệp cấu hình JSON trên server
+    JSON_FILE_PATH = "info_school/info_school.json"
+    if os.path.exists(JSON_FILE_PATH):
+        try:
+            with open(JSON_FILE_PATH, "r", encoding="utf-8") as f:
+                school_info = json.load(f)
+            return school_info
+        except Exception as e:
+            # Nếu tệp JSON bị lỗi cú pháp khi người dùng sửa, in ra cảnh báo và dùng giờ mặc định
+            print(f"Cảnh báo: Không thể đọc tệp JSON do lỗi: {e}")
 
 
 def rut_df_tkb_gv(df_tkbc, gvunique):
-  vals = df_tkbc.iloc[:, 2:].values
-  thutietij_dic = {}
-  thutietij_set = set()
-  for i, hang in enumerate(vals):
-      for j, ocell in enumerate(hang):
-          if isinstance(ocell, str) and '_' in ocell:
-              tengv,mon = ocell.strip().split("_")
-              if gvunique == tengv:
-                  # gia tri cua cot ten "Thu" ở hàng index i
-                  thu = df_tkbc.at[i, "Thứ"]
-                  # gia tri cua cot ten "Tiet" ở hàng index i
-                  tiet = df_tkbc.at[i, "Tiết"]
-                  # ten lop tuong ung:
-                  lop = df_tkbc.columns[j+2] # vì đã bỏ ra 2 cột 
-                  #st.write('Thứ '+thu , "Tiết "+tiet, lop + "-" + mon)
+    vals = df_tkbc.iloc[:, 2:].values
+    thutietij_dic = {}
+    thutietij_set = set()
+    for i, hang in enumerate(vals):
+        for j, ocell in enumerate(hang):
+            if isinstance(ocell, str) and '_' in ocell:
+                tengv,mon = ocell.strip().split("_")
+                if gvunique == tengv:
+                    # gia tri cua cot ten "Thu" ở hàng index i
+                    thu = df_tkbc.at[i, "Thứ"]
+                    # gia tri cua cot ten "Tiet" ở hàng index i
+                    tiet = df_tkbc.at[i, "Tiết"]
+                    # ten lop tuong ung:
+                    lop = df_tkbc.columns[j+2] # vì đã bỏ ra 2 cột 
+                    #st.write('Thứ '+thu , "Tiết "+tiet, lop + "-" + mon)
 
-                  valofij = lop + "-" + mon
-                  x, y = thu, tiet
-                  string_key = f"{x},{y}"
+                    valofij = lop + "-" + mon
+                    x, y = thu, tiet
+                    string_key = f"{x},{y}"
 
-                  if string_key not in thutietij_dic :
-                      thutietij_dic[string_key] = valofij 
-                  else:
-                      thutietij_dic[string_key] = thutietij_dic[string_key] + ", " + valofij
+                    if string_key not in thutietij_dic :
+                        thutietij_dic[string_key] = valofij 
+                    else:
+                        thutietij_dic[string_key] = thutietij_dic[string_key] + ", " + valofij
 
-  #data = thutietij_dic
-  # Các cột đại diện cho Thứ
-  columns = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
-  # Tạo DataFrame rỗng với 10 tiết
-  df = pd.DataFrame('', index=range(1, 11), columns=columns)
-  df.index.name = 'Tiết'
-  # Điền dữ liệu từ dict vào bảng
-  for key, value in thutietij_dic.items():
-      thu, tiet = map(int, key.split(','))
-      col_name = f'Thứ {thu}'
-      if col_name in df.columns and 1 <= tiet <= 10:
-          df.loc[tiet, col_name] = value.replace("Lop_","")
+    #data = thutietij_dic
+    # Các cột đại diện cho Thứ
+    columns = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
+    # Tạo DataFrame rỗng với 10 tiết
+    df = pd.DataFrame('', index=range(1, 11), columns=columns)
+    df.index.name = 'Tiết'
+    # Điền dữ liệu từ dict vào bảng
+    for key, value in thutietij_dic.items():
+        thu, tiet = map(int, key.split(','))
+        col_name = f'Thứ {thu}'
+        if col_name in df.columns and 1 <= tiet <= 10:
+            df.loc[tiet, col_name] = value.replace("Lop_","")
 
-  df2 = df.reset_index()
+    df2 = df.reset_index()
 
-  info_dict = lay_tt_tu_info_school()
-  lgiobatdau = info_dict['gio_hoc']
-  lgiobatdau = [pt.split('-')[0].strip() for pt in lgiobatdau]
-  #print(lgiobatdau)
+    info_dict = lay_tt_tu_info_school()
+    lgiobatdau = info_dict['gio_hoc']
+    lgiobatdau = [pt.split('-')[0].strip() for pt in lgiobatdau]
+    #print(lgiobatdau)
   
-  map_gio = {}
-  for cs, pt in enumerate(lgiobatdau):
-    map_gio[cs+1] = f"{cs+1} ({pt})" 
-  # sua lai nd cot tiet thanh dang: "1 (07:00)",...
-  df2['Tiết'] = df2['Tiết'].astype(int).map(map_gio).fillna(df2['Tiết'])
+    map_gio = {}
+    for cs, pt in enumerate(lgiobatdau):
+        map_gio[cs+1] = f"{cs+1} ({pt})" 
+    # sua lai nd cot tiet thanh dang: "1 (07:00)",...
+    df2['Tiết'] = df2['Tiết'].astype(int).map(map_gio).fillna(df2['Tiết'])
 
-  return df2
+    return df2
 
 
 ##################################################
