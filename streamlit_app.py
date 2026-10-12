@@ -312,7 +312,7 @@ TEN_TRUONG="Trường Học với tiensg89@"
 
 # Cấu hình giao diện trang web (phải đặt ở dòng đầu tiên của Streamlit)
 st.set_page_config(page_title="Quản Lý & Xếp TKB",layout="wide",initial_sidebar_state="expanded",)
-st.subheader(f"⚙️ ***Quản Lý & Xếp TKB {TEN_TRUONG}***")
+st.subheader(f"⚙️ ***Xếp & QL TKB Trường học với tiensg89@***")
 time_select = st.select_slider(".", options=[30, 60, 120, 180, 240, 300, 360, 420, 480,540, 600,900,1800],label_visibility="hidden")
 thongbao = st.empty()
 #thongbao.write("---")
