@@ -9,7 +9,7 @@ from xhtml2pdf import pisa
 
 from utils.grid_helper import ham_lay_gob
 from utils.scheduler import chay_trinh_xeptkb
-#from utils.dial_logs import resetrangbuoc
+from utils.dial_logs import resetrangbuoc
 
 def rut_df_tkb_gv(df_tkbc, gvunique):
     vals = df_tkbc.iloc[:, 2:].values
