@@ -255,7 +255,7 @@ def ham_lay_gob(dfc, is_swap, is_view, cam_xep_keys):
 
 
     gob = GridOptionsBuilder.from_dataframe(dfc)
-    gob.configure_selection("multiple", use_checkbox=True)
+    #gob.configure_selection("single", use_checkbox=True)
     gob.configure_grid_options(
         onCellClicked=cell_click_js,
         getRowStyle=row_style_js,  # <--- Bổ sung dòng này để kẻ vạch đậm ngang các T
